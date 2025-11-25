@@ -60,6 +60,7 @@ export interface LoginResponse {
 
 export interface Message {
     id: number;
+    chat_id: number;
     role: 'user' | 'assistant' | 'system';
     content: string;
     created_at: string;
@@ -68,6 +69,9 @@ export interface Message {
         masked_used?: boolean;
         provider?: string;
         style?: string;
+        comparison_id?: string;
+        model?: string;
+        vote?: string;
         [key: string]: any;
     };
 }
@@ -89,6 +93,7 @@ export interface ChatRequest {
     style?: string;
     provider?: string;
     model?: string;
+    models?: string[];
 }
 
 export interface Metrics {
@@ -96,6 +101,7 @@ export interface Metrics {
     recent_avg_latency: number;
     recent_masked_count: number;
     sample_size: number;
+    model_usage: Record<string, number>;
 }
 
 export const deleteChat = (id: number) => api.delete(`/chats/${id}`);

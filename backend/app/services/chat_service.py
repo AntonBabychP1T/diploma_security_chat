@@ -14,6 +14,7 @@ from app.utils.logger import get_logger
 from app.core.config import get_settings
 from fastapi import BackgroundTasks, Request
 import asyncio
+import uuid
 from typing import AsyncGenerator
 from app.core.database import SessionLocal
 
@@ -352,3 +353,124 @@ class ChatService:
                 value = value[:117] + "..."
             sentences.append(value)
         return sentences
+
+    async def send_arena_message(self, chat_id: int, content: str, models: List[str], style: str = "default") -> List[Message]:
+        # Verify ownership
+        chat = await self.get_chat(chat_id)
+        if not chat:
+            raise ValueError("Chat not found or access denied")
+
+        # 1. Save User Message
+        user_message = Message(chat_id=chat_id, role="user", content=content)
+        self.db.add(user_message)
+        await self.db.commit()
+
+        # 2. Prepare Context (simplified for arena)
+        history = await self.get_chat_history(chat_id)
+        context_messages = history[-5:]
+        
+        masked_messages = []
+        combined_mapping = {}
+        
+        system_prompt = self.styles.get(style, self.styles["default"])
+        masked_messages.append({"role": "system", "content": system_prompt})
+
+        for msg in context_messages:
+            masked_content, mapping = self.pii_service.mask(msg.content)
+            masked_messages.append({"role": msg.role, "content": masked_content})
+            combined_mapping.update(mapping)
+
+        # 3. Parallel LLM Calls
+        comparison_id = str(uuid.uuid4())
+        tasks = []
+        
+        for model_id in models:
+            # Determine provider from model_id (heuristic or explicit map needed)
+            # Assuming model_id format "provider-model" or simple mapping
+            # For now, simplistic check:
+            if "gpt" in model_id:
+                provider_name = "openai"
+            elif "gemini" in model_id:
+                provider_name = "gemini"
+            else:
+                provider_name = "openai" # Fallback
+
+            provider = ProviderFactory.get_provider(provider_name)
+            tasks.append(
+                provider.generate(
+                    masked_messages,
+                    options={
+                        "model": model_id,
+                        "max_completion_tokens": self.settings.OPENAI_MAX_COMPLETION_TOKENS
+                    }
+                )
+            )
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        logger.info(f"Arena mode: received {len(results)} results from gather")
+        
+        assistant_messages = []
+        for i, res in enumerate(results):
+            model_id = models[i]
+            logger.info(f"Processing result {i} for model {model_id}: type={type(res)}")
+            
+            if isinstance(res, Exception):
+                logger.error(f"Arena error for {model_id}: {res}")
+                content = f"Error generating response from {model_id}"
+                meta = {"error": str(res)}
+            else:
+                raw_content = res.content or ""
+                logger.info(f"Model {model_id}: raw_content length = {len(raw_content)}, res.content type = {type(res.content)}")
+                content = self.pii_service.unmask(raw_content, combined_mapping) or raw_content
+                logger.info(f"Model {model_id}: final content length = {len(content)}")
+                meta = res.meta_data or {}
+            
+            meta.update({
+                "comparison_id": comparison_id,
+                "model": model_id,
+                "is_arena": True,
+                "style": style
+            })
+
+            msg = Message(
+                chat_id=chat_id,
+                role="assistant",
+                content=content,
+                meta_data=meta
+            )
+            self.db.add(msg)
+            assistant_messages.append(msg)
+
+        await self.db.commit()
+        for msg in assistant_messages:
+            await self.db.refresh(msg)
+        
+        logger.info(f"Arena mode: returning {len(assistant_messages)} messages")
+        for msg in assistant_messages:
+            logger.info(f"  - Message ID: {msg.id}, Model: {msg.meta_data.get('model')}, Content length: {len(msg.content)}")
+            
+        return assistant_messages
+
+    async def vote_message(self, chat_id: int, message_id: int, vote_type: str) -> bool:
+        # vote_type: "better", "worse", "tie" (though usually we vote for "better")
+        # We might want to mark the 'winner' in a comparison pair.
+        
+        # Fetch message
+        query = select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+        result = await self.db.execute(query)
+        message = result.scalar_one_or_none()
+        
+        if not message:
+            return False
+            
+        # Update metadata
+        meta = dict(message.meta_data or {})
+        meta["vote"] = vote_type
+        message.meta_data = meta
+        
+        # If it's part of a comparison, we might want to find the sibling and mark it too?
+        # For now, just marking the voted message is enough for metrics aggregation.
+        
+        await self.db.commit()
+        return True

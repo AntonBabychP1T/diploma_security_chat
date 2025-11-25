@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, MessageSquare, Shield, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -109,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
                                         paddingAngle={5}
                                         dataKey="value"
                                     >
-                                        {modelData.map((entry, index) => (
+                                        {modelData.map((_, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
