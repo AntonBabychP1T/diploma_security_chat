@@ -5,6 +5,7 @@ from app.core.database import engine, Base
 from app import models  # ensure models are registered with SQLAlchemy
 from app.routers import chats, metrics, auth
 from app.routers import memories
+from app.routers import audio
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +54,7 @@ app.include_router(auth.router)
 app.include_router(chats.router)
 app.include_router(metrics.router)
 app.include_router(memories.router)
+app.include_router(audio.router)
 
 @app.get("/")
 async def root():

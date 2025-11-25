@@ -37,7 +37,8 @@ export const ChatPage: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const currentModelOptions = modelsByProvider[provider] || [];
     const [abortController, setAbortController] = useState<AbortController | null>(null);
-    const [optimisticId, setOptimisticId] = useState<number | null>(null);
+    const [optimisticUserId, setOptimisticUserId] = useState<number | null>(null);
+    const [optimisticAssistantId, setOptimisticAssistantId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchChats();
@@ -129,21 +130,21 @@ export const ChatPage: React.FC = () => {
         if (abortController) {
             abortController.abort();
         }
-        if (optimisticId && activeChat?.messages) {
+        if (optimisticAssistantId && activeChat?.messages) {
             setActiveChat({
                 ...activeChat,
-                messages: activeChat.messages.filter(m => m.id !== optimisticId)
+                messages: activeChat.messages.filter(m => m.id !== optimisticAssistantId)
             });
         }
         setSending(false);
         setAbortController(null);
-        setOptimisticId(null);
+        setOptimisticAssistantId(null);
     };
 
     const handleSend = async (text: string) => {
         if (!activeChat || sending) return;
 
-        // Optimistic update
+        // Optimistic user message
         const optimisticMsg: Message = {
             id: Date.now(),
             role: 'user',
@@ -157,36 +158,120 @@ export const ChatPage: React.FC = () => {
         };
         setActiveChat(updatedChat);
         setSending(true);
-        setOptimisticId(optimisticMsg.id);
+        setOptimisticUserId(optimisticMsg.id);
+
+        // Placeholder assistant message for streaming updates
+        const assistantTempId = Date.now() + 1;
+        setOptimisticAssistantId(assistantTempId);
+        setActiveChat(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                messages: [...(prev.messages || []), {
+                    id: assistantTempId,
+                    role: 'assistant',
+                    content: '',
+                    created_at: new Date().toISOString()
+                }]
+            };
+        });
 
         const controller = new AbortController();
         setAbortController(controller);
 
         try {
-            const res = await api.post<Message>(`/chats/${activeChat.id}/messages`, {
-                message: text,
-                style: style,
-                provider: provider,
-                model: model
-            }, { signal: controller.signal });
+            const token = localStorage.getItem('token');
+            const baseURL = api.defaults.baseURL || '';
+            const res = await fetch(`${baseURL}/chats/${activeChat.id}/messages/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    message: text,
+                    style: style,
+                    provider: provider,
+                    model: model
+                }),
+                signal: controller.signal
+            });
 
+            if (!res.ok || !res.body) {
+                throw new Error(`Streaming failed: ${res.status}`);
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let assistantContent = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
+
+                for (const part of parts) {
+                    const line = part.trimStart();
+                    if (!line.startsWith("data:")) continue;
+                    const dataStr = line.replace(/^data:\s*/, "");
+                    if (!dataStr) continue;
+                    try {
+                        const payload = JSON.parse(dataStr);
+                        if (payload.done) {
+                            continue;
+                        }
+                        const delta: string = payload.delta ?? "";
+                        if (!delta) continue;
+                        assistantContent += delta;
+                        setActiveChat(prev => {
+                            if (!prev) return null;
+                            return {
+                                ...prev,
+                                messages: (prev.messages || []).map(m =>
+                                    m.id === assistantTempId ? { ...m, content: assistantContent } : m
+                                )
+                            };
+                        });
+                    } catch (e) {
+                        console.error("Failed to parse stream chunk", e, dataStr);
+                    }
+                }
+            }
+
+            // Remove optimistic assistant before syncing
             setActiveChat(prev => {
                 if (!prev) return null;
                 return {
                     ...prev,
-                    messages: [...(prev.messages || []), res.data]
+                    messages: (prev.messages || []).filter(m => m.id !== assistantTempId)
                 };
             });
+
+            // Refresh chat to sync with persisted message IDs/content
+            await fetchChat(activeChat.id);
         } catch (err) {
-            if (axios.isCancel(err)) {
+            if ((err as any).name === "AbortError") {
                 console.warn("Request cancelled");
             } else {
                 console.error("Failed to send message", err);
             }
+            // Remove optimistic assistant on failure
+            setActiveChat(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    messages: (prev.messages || []).filter(m => m.id !== assistantTempId)
+                };
+            });
         } finally {
             setSending(false);
             setAbortController(null);
-            setOptimisticId(null);
+            setOptimisticUserId(null);
+            setOptimisticAssistantId(null);
         }
     };
 

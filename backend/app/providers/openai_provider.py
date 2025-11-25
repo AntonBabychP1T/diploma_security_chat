@@ -21,7 +21,9 @@ class OpenAIProvider(LLMProvider):
         model = options.get("model", self.default_model)
         
         # Model-specific constraints
-        default_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
+        configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
+        # Hard cap to avoid long generations that hurt latency
+        default_max = min(configured_max, 2048)
         if model in {"gpt-5-nano", "gpt-5-mini", "gpt-5.1"}:
             # Avoid sending unsupported temperature for these models
             temperature = None
@@ -77,4 +79,44 @@ class OpenAIProvider(LLMProvider):
                     print(f"OpenAI Provider Error after retry: {inner}")
                     raise inner
             print(f"OpenAI Provider Error: {e}")
+            raise e
+
+    async def stream_generate(
+        self,
+        messages: List[Dict[str, str]],
+        options: Optional[Dict[str, Any]] = None
+    ):
+        options = options or {}
+        model = options.get("model", self.default_model)
+
+        configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
+        default_max = min(configured_max, 2048)
+        if model in {"gpt-5-nano", "gpt-5-mini", "gpt-5.1"}:
+            temperature = None
+            max_completion_tokens = default_max
+        else:
+            temperature = options.get("temperature", None)
+            max_completion_tokens = default_max
+
+        kwargs: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "max_completion_tokens": max_completion_tokens,
+            "stream": True
+        }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+
+        try:
+            return await self.client.chat.completions.create(**kwargs)
+        except Exception as e:
+            err_text = str(e)
+            if "temperature" in err_text:
+                try:
+                    kwargs.pop("temperature", None)
+                    return await self.client.chat.completions.create(**kwargs)
+                except Exception as inner:
+                    print(f"OpenAI Stream Error after retry: {inner}")
+                    raise inner
+            print(f"OpenAI Stream Error: {e}")
             raise e

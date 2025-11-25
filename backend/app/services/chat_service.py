@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import time
+import json
 from app.models.chat import Chat, Message
 from app.models.memory import Memory
 from app.schemas.chat import ChatCreate, MessageCreate
@@ -11,6 +12,10 @@ from app.providers import ProviderFactory
 from app.services.memory_service import MemoryService
 from app.utils.logger import get_logger
 from app.core.config import get_settings
+from fastapi import BackgroundTasks, Request
+import asyncio
+from typing import AsyncGenerator
+from app.core.database import SessionLocal
 
 logger = get_logger("chat_service")
 
@@ -113,7 +118,7 @@ class ChatService:
         history = await self.get_chat_history(chat_id)
         
         # 3. Prepare Context & Masking
-        context_messages = history[-10:] 
+        context_messages = history[-5:] 
         
         masked_messages = []
         combined_mapping = {}
@@ -174,6 +179,127 @@ class ChatService:
         logger.info(f"Chat {chat_id}: Processed message. Latency: {latency:.2f}s. Masked: {meta_data['masked_used']}")
         
         return assistant_message
+
+    async def send_message_stream(
+        self,
+        chat_id: int,
+        content: str,
+        style: str = "default",
+        provider_name: str = "openai",
+        model: str | None = None,
+        fastapi_request: Request | None = None,
+        background_tasks: BackgroundTasks | None = None
+    ) -> AsyncGenerator[str, None]:
+        # Verify ownership
+        chat = await self.get_chat(chat_id)
+        if not chat:
+            raise ValueError("Chat not found or access denied")
+
+        start_time = time.time()
+        memory_context: list[str] = []
+        if self.memory_service:
+            try:
+                stored_memories = await self.memory_service.get_memories()
+                memory_context = self.build_relevant_memory_context(stored_memories)
+            except Exception as e:
+                logger.error(f"Memory context build error: {e}")
+
+        # Save user message first
+        user_message = Message(chat_id=chat_id, role="user", content=content)
+        self.db.add(user_message)
+        await self.db.commit()
+
+        history = await self.get_chat_history(chat_id)
+        context_messages = history[-5:] 
+
+        masked_messages = []
+        combined_mapping = {}
+
+        system_prompt = self.styles.get(style, self.styles["default"])
+        if memory_context:
+            formatted = "\n".join([f"- {m}" for m in memory_context])
+            system_prompt = f"{system_prompt}\n\nHere is context about the user:\n{formatted}"
+        masked_messages.append({"role": "system", "content": system_prompt})
+
+        for msg in context_messages:
+            masked_content, mapping = self.pii_service.mask(msg.content)
+            masked_messages.append({"role": msg.role, "content": masked_content})
+            combined_mapping.update(mapping)
+
+        provider = ProviderFactory.get_provider(provider_name)
+        stream = await provider.stream_generate(
+            masked_messages,
+            options={
+                "model": model,
+                "max_completion_tokens": self.settings.OPENAI_MAX_COMPLETION_TOKENS
+            }
+        )
+
+        full_chunks: list[str] = []
+
+        async def event_generator():
+            nonlocal full_chunks
+            try:
+                async for chunk in stream:
+                    if fastapi_request and await fastapi_request.is_disconnected():
+                        await stream.aclose()
+                        return
+
+                    delta = chunk.choices[0].delta.content or ""
+                    if not delta:
+                        continue
+                    full_chunks.append(delta)
+                    unmasked_delta = self.pii_service.unmask(delta, combined_mapping) if combined_mapping else delta
+                    payload = {"delta": unmasked_delta}
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            finally:
+                # Closing stream if not already
+                try:
+                    await stream.aclose()
+                except Exception:
+                    pass
+
+                full_raw = "".join(full_chunks)
+                unmasked_full = self.pii_service.unmask(full_raw, combined_mapping) if combined_mapping else full_raw
+                if not unmasked_full.strip():
+                    unmasked_full = "Вибачте, не вдалося згенерувати відповідь цього разу."
+
+                end_time = time.time()
+                meta_data = {
+                    "provider": provider_name,
+                    "model": model or getattr(provider, "default_model", ""),
+                    "latency": end_time - start_time,
+                    "masked_used": len(combined_mapping) > 0,
+                    "style": style
+                }
+
+                assistant_message = Message(
+                    chat_id=chat_id,
+                    role="assistant",
+                    content=unmasked_full,
+                    meta_data=meta_data
+                )
+                self.db.add(assistant_message)
+                await self.db.commit()
+                await self.db.refresh(assistant_message)
+
+                # Run memory update in background
+                if self.memory_service:
+                    async def run_memory_update():
+                        try:
+                            dialog_fragment = f"user: {content}\nassistant: {unmasked_full}"
+                            async with SessionLocal() as session:
+                                mem_service = MemoryService(session, self.user_id)
+                                await mem_service.update_store_from_extractor(dialog_fragment)
+                        except Exception as e:
+                            logger.error(f"Memory extractor error: {e}")
+
+                    asyncio.create_task(run_memory_update())
+
+                # Signal end of stream
+                yield f"data: {json.dumps({'done': True})}\n\n"
+
+        return event_generator()
 
     def build_relevant_memory_context(self, memories: list[Memory]) -> list[str]:
         """Lightweight heuristic selector to avoid LLM calls in the critical path."""

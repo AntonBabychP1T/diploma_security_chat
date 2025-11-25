@@ -105,20 +105,34 @@ class MemoryService:
         )
         return result.scalars().all()
 
-    async def add_memory(self, category: str, key: str, value: str, confidence: float = 0.7) -> Memory:
+    async def add_memory(self, category: str, key: str, value: Any, confidence: float = 0.7) -> Memory:
         """Upsert memory by (user_id, category, key) to avoid duplicates and keep values short."""
-        short_value = value.strip()
+        # Normalize value to short string
+        if isinstance(value, list):
+            value = " ".join([str(v) for v in value])
+        if value is None:
+            value = ""
+        short_value = str(value).strip()
         if len(short_value) > 200:
             short_value = short_value[:197] + "..."
 
         result = await self.db.execute(
-            select(Memory).where(
+            select(Memory)
+            .where(
                 Memory.user_id == self.user_id,
                 Memory.category == category,
                 Memory.key == key
             )
+            .order_by(Memory.updated_at.desc())
         )
-        existing = result.scalar_one_or_none()
+        existing_list = result.scalars().all()
+        existing = existing_list[0] if existing_list else None
+
+        # Clean duplicates if any
+        if existing_list and len(existing_list) > 1:
+            for dup in existing_list[1:]:
+                await self.db.delete(dup)
+
         if existing:
             existing.value = short_value
             existing.confidence = confidence

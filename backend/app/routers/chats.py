@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
@@ -10,6 +12,7 @@ from app.services.memory_service import MemoryService
 from app.routers.auth import get_current_user
 from app.models.user import User
 import asyncio
+import json
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -73,3 +76,34 @@ async def send_message(chat_id: int, request: ChatRequest, background_tasks: Bac
         raise HTTPException(status_code=404, detail="Chat not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{chat_id}/messages/stream")
+async def send_message_stream(
+    chat_id: int,
+    request: ChatRequest,
+    fastapi_request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    service = ChatService(db, user_id=current_user.id)
+
+    try:
+        stream_gen = await service.send_message_stream(
+            chat_id=chat_id,
+            content=request.message,
+            style=request.style or "default",
+            provider_name=request.provider or "openai",
+            model=request.model,
+            fastapi_request=fastapi_request,
+            background_tasks=background_tasks
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return StreamingResponse(stream_gen, media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+    })

@@ -8,9 +8,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     MEMORY_EXTRACT_MODEL: str = "gpt-5-mini"
     MEMORY_INJECT_MODEL: str = "gpt-5-mini"
-    OPENAI_MAX_COMPLETION_TOKENS: int = 10000
+    OPENAI_MAX_COMPLETION_TOKENS: int = 2048
     MEMORY_EXTRACT_MAX_TOKENS: int = 10000
     MEMORY_INJECT_MAX_TOKENS: int = 10000
+    AUDIO_TRANSCRIBE_MODEL: str = "gpt-4o-mini-transcribe"
     
     model_config = SettingsConfigDict(env_file=".env")
 

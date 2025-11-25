@@ -120,3 +120,11 @@ export const fetchMemories = () => api.get<MemoryItem[]>('/memories');
 export const addMemory = (payload: { category: string; key: string; value: string; confidence?: number }) =>
     api.post<MemoryItem>('/memories', payload);
 export const deleteMemory = (id: number) => api.delete(`/memories/${id}`);
+
+export const transcribeAudio = (blob: Blob) => {
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.webm');
+    return api.post<{ text: string }>('/audio/transcribe', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+};
