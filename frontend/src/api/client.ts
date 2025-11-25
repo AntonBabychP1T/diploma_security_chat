@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'http://localhost:8000',
+    baseURL: '/api',
 });
 
 // Add request interceptor to attach token
@@ -128,3 +128,6 @@ export const transcribeAudio = (blob: Blob) => {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
 };
+
+export const askSecretary = (query: string) =>
+    api.post<{ response: string }>('/secretary/ask', { query });

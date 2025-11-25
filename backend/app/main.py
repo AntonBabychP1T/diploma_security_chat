@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import engine, Base
 from app import models  # ensure models are registered with SQLAlchemy
-from app.routers import chats, metrics, auth
+from app.routers import chats, metrics, auth, google_auth, secretary
 from app.routers import memories
 from app.routers import audio
 import logging
@@ -23,6 +23,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
+    allow_origin_regex=r"https://.*\.ngrok-free\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,6 +52,8 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
 
 app.include_router(auth.router)
+app.include_router(google_auth.router)
+app.include_router(secretary.router)
 app.include_router(chats.router)
 app.include_router(metrics.router)
 app.include_router(memories.router)

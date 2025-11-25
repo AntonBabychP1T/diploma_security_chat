@@ -23,7 +23,8 @@ import {
     AlertCircle,
     Brain,
     Plus,
-    Trash2
+    Trash2,
+    Link2
 } from 'lucide-react';
 
 const memoryCategories = [
@@ -57,6 +58,11 @@ export const ProfilePage: React.FC = () => {
         confidence: 0.8
     });
     const [memorySaving, setMemorySaving] = useState(false);
+    const [autoSecretary, setAutoSecretary] = useState<boolean>(() => {
+        const stored = localStorage.getItem('auto_secretary');
+        return stored === 'true';
+    });
+    const [googleConnecting, setGoogleConnecting] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -146,6 +152,11 @@ export const ProfilePage: React.FC = () => {
         } finally {
             setMemorySaving(false);
         }
+    };
+
+    const handleToggleAutoSecretary = (value: boolean) => {
+        setAutoSecretary(value);
+        localStorage.setItem('auto_secretary', value ? 'true' : 'false');
     };
 
     const handleDeleteMemory = async (id: number) => {
@@ -317,6 +328,63 @@ export const ProfilePage: React.FC = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <div className="mt-6 bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
+                                <Link2 size={22} />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Інтеграції</p>
+                                <h2 className="text-lg font-semibold text-white">Google OAuth</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-4">
+                        Підключіть Gmail та Google Calendar, щоб секретар-агент міг читати пошту та події.
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setGoogleConnecting(true);
+                                    const res = await fetch('/api/auth/google/login', {
+                                        headers: {
+                                            'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+                                        }
+                                    });
+                                    const data = await res.json();
+                                    if (data.url) {
+                                        window.location.href = data.url;
+                                    } else {
+                                        alert('Не вдалося отримати Google OAuth URL');
+                                    }
+                                } catch (err) {
+                                    console.error('Google connect failed', err);
+                                    alert('Не вдалося ініціювати OAuth, спробуйте ще раз.');
+                                } finally {
+                                    setGoogleConnecting(false);
+                                }
+                            }}
+                            disabled={googleConnecting}
+                            className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-60 text-white rounded-xl font-medium transition-all shadow-lg shadow-primary-900/20"
+                        >
+                            {googleConnecting ? 'Підключення...' : 'Підключити Google'}
+                        </button>
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={autoSecretary}
+                                    onChange={(e) => handleToggleAutoSecretary(e.target.checked)}
+                                    className="accent-primary-500"
+                                />
+                                <span>Автозапуск секретаря за ключовими словами</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 

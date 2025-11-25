@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Square, ArrowUp, Mic, MicOff, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot } from 'lucide-react';
 import clsx from 'clsx';
 import { transcribeAudio } from '../api/client';
 
@@ -8,9 +8,11 @@ interface Props {
     disabled?: boolean;
     isSending?: boolean;
     onStop?: () => void;
+    secretaryMode?: boolean;
+    onSecretaryModeChange?: (enabled: boolean) => void;
 }
 
-export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop }) => {
+export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop, secretaryMode, onSecretaryModeChange }) => {
     const [text, setText] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [recording, setRecording] = useState(false);
@@ -151,9 +153,9 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto px-4 pb-6 pt-2">
+        <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 pb-4 sm:pb-6 pt-2">
             <div className={clsx(
-                "relative flex items-end gap-2 bg-gray-800/80 backdrop-blur-xl border border-white/10 rounded-3xl p-2 shadow-2xl shadow-black/20 transition-all duration-200",
+                "relative flex items-end gap-2 bg-gray-800/80 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-2 shadow-2xl shadow-black/20 transition-all duration-200",
                 "focus-within:border-primary-500/30 focus-within:ring-1 focus-within:ring-primary-500/20"
             )}>
                 {/* Attachment Button (Mock) */}
@@ -163,6 +165,22 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                 >
                     <Paperclip size={20} />
                 </button>
+
+                {/* Secretary Mode Toggle */}
+                {onSecretaryModeChange && (
+                    <button
+                        onClick={() => onSecretaryModeChange(!secretaryMode)}
+                        className={clsx(
+                            "p-3 rounded-full transition-colors mb-0.5",
+                            secretaryMode
+                                ? "text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20"
+                                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                        )}
+                        title={secretaryMode ? "Secretary Mode ON" : "Secretary Mode OFF"}
+                    >
+                        <Bot size={20} />
+                    </button>
+                )}
 
                 <textarea
                     ref={textareaRef}

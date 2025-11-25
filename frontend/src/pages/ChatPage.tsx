@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api, Chat, Message, updateChat, deleteChat } from '../api/client';
+import { api, Chat, Message, updateChat, deleteChat, askSecretary } from '../api/client';
 import { Sidebar } from '../components/Sidebar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
 import { ChatHeader } from '../components/ChatHeader';
 import { Loader2, Bot } from 'lucide-react';
 import axios from 'axios';
+import { Menu, X } from 'lucide-react';
+import clsx from 'clsx';
 
 export const ChatPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -39,6 +41,9 @@ export const ChatPage: React.FC = () => {
     const [abortController, setAbortController] = useState<AbortController | null>(null);
     const [optimisticUserId, setOptimisticUserId] = useState<number | null>(null);
     const [optimisticAssistantId, setOptimisticAssistantId] = useState<number | null>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [secretaryMode, setSecretaryMode] = useState(false);
+    const autoSecretary = typeof window !== 'undefined' ? localStorage.getItem('auto_secretary') === 'true' : false;
 
     useEffect(() => {
         fetchChats();
@@ -144,6 +149,10 @@ export const ChatPage: React.FC = () => {
     const handleSend = async (text: string) => {
         if (!activeChat || sending) return;
 
+        const trimmed = text.trim();
+        const secretaryCommand = secretaryMode || /^\/(sec|secretary|секретар)/i.test(trimmed);
+        const secretaryQuery = secretaryCommand && !secretaryMode ? trimmed.replace(/^\/(sec|secretary|секретар)\s*/i, '') || trimmed : trimmed;
+
         // Optimistic user message
         const optimisticMsg: Message = {
             id: Date.now(),
@@ -157,6 +166,39 @@ export const ChatPage: React.FC = () => {
             messages: [...(activeChat.messages || []), optimisticMsg]
         };
         setActiveChat(updatedChat);
+
+        if (secretaryCommand) {
+            try {
+                const res = await askSecretary(secretaryQuery || text);
+                setActiveChat(prev => {
+                    if (!prev) return null;
+                    return {
+                        ...prev,
+                        messages: [...(prev.messages || []), {
+                            id: Date.now() + 1,
+                            role: 'assistant',
+                            content: `Секретар: ${res.data.response}`,
+                            created_at: new Date().toISOString()
+                        }]
+                    };
+                });
+            } catch (err) {
+                console.error("Secretary agent failed", err);
+                setActiveChat(prev => {
+                    if (!prev) return null;
+                    return {
+                        ...prev,
+                        messages: [...(prev.messages || []), {
+                            id: Date.now() + 2,
+                            role: 'assistant',
+                            content: "Секретар недоступний або без доступу до Gmail/Calendar.",
+                            created_at: new Date().toISOString()
+                        }]
+                    };
+                });
+            }
+            return;
+        }
         setSending(true);
         setOptimisticUserId(optimisticMsg.id);
 
@@ -273,21 +315,68 @@ export const ChatPage: React.FC = () => {
             setOptimisticUserId(null);
             setOptimisticAssistantId(null);
         }
+
+        // Auto trigger secretary if enabled and keywords match
+        if (!secretaryCommand && autoSecretary && /\b(calendar|gmail|meeting|події|календар|лист|пошта|секретар)\b/i.test(text)) {
+            try {
+                const res = await askSecretary(text);
+                setActiveChat(prev => {
+                    if (!prev) return null;
+                    return {
+                        ...prev,
+                        messages: [...(prev.messages || []), {
+                            id: Date.now(),
+                            role: 'assistant',
+                            content: `Секретар: ${res.data.response}`,
+                            created_at: new Date().toISOString()
+                        }]
+                    };
+                });
+            } catch (err) {
+                console.error("Secretary agent failed", err);
+            }
+        }
     };
 
     return (
         <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden font-sans">
-            <Sidebar
-                chats={chats}
-                activeChatId={activeChat?.id}
-                onNewChat={handleNewChat}
-                onRenameChat={handleRenameChat}
-                onDeleteChat={handleDeleteChat}
-            />
+            {/* Sidebar with mobile overlay */}
+            <div className={clsx(
+                "fixed inset-0 z-30 transition-transform duration-200 md:static md:translate-x-0 md:w-72",
+                sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+            )}>
+                <Sidebar
+                    chats={chats}
+                    activeChatId={activeChat?.id}
+                    onNewChat={handleNewChat}
+                    onRenameChat={handleRenameChat}
+                    onDeleteChat={handleDeleteChat}
+                    onCloseSidebar={() => setSidebarOpen(false)}
+                />
+                {sidebarOpen && (
+                    <div
+                        className="absolute inset-0 bg-black/60 md:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+            </div>
 
             <div className="flex-1 flex flex-col min-w-0 relative bg-gray-950">
                 {/* Background Gradient Effect */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950 pointer-events-none" />
+
+                {/* Mobile top bar */}
+                <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-white/5 z-20 bg-gray-950">
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="p-2 rounded-lg bg-gray-800 text-white"
+                    >
+                        <Menu size={18} />
+                    </button>
+                    <div className="flex-1 truncate text-sm text-gray-300">
+                        {activeChat ? activeChat.title : "Виберіть чат"}
+                    </div>
+                </div>
 
                 {activeChat ? (
                     <>
@@ -301,10 +390,32 @@ export const ChatPage: React.FC = () => {
                             onStyleChange={setStyle}
                             onProviderChange={handleProviderChange}
                             onModelChange={setModel}
+                            onSecretary={async () => {
+                                const q = prompt("Запит до секретаря (Gmail/Calendar):", "Покажи останній лист і події на сьогодні");
+                                if (!q) return;
+                                try {
+                                    const res = await askSecretary(q);
+                                    setActiveChat(prev => {
+                                        if (!prev) return null;
+                                        return {
+                                            ...prev,
+                                            messages: [...(prev.messages || []), {
+                                                id: Date.now(),
+                                                role: 'assistant',
+                                                content: `Секретар: ${res.data.response}`,
+                                                created_at: new Date().toISOString()
+                                            }]
+                                        };
+                                    });
+                                } catch (err) {
+                                    console.error("Secretary agent failed", err);
+                                    alert("Секретар недоступний або немає доступу до Gmail/Calendar.");
+                                }
+                            }}
                         />
 
                         {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth relative z-0">
+                        <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-6 scroll-smooth relative z-0">
                             {loading ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
                                     <Loader2 className="animate-spin text-primary-500" size={32} />
@@ -313,7 +424,6 @@ export const ChatPage: React.FC = () => {
                             ) : (
                                 <div className="max-w-4xl mx-auto w-full py-4 space-y-6">
                                     {activeChat.messages?.map((msg, index) => {
-                                        // Check if previous message was from same role to group them
                                         const prevMsg = activeChat.messages?.[index - 1];
                                         const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role || (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 60000);
 
@@ -327,7 +437,7 @@ export const ChatPage: React.FC = () => {
                                     })}
 
                                     {sending && (
-                                        <div className="flex gap-4 max-w-4xl mx-auto w-full animate-in fade-in duration-300">
+                                        <div className="flex gap-3 sm:gap-4 max-w-4xl mx-auto w-full animate-in fade-in duration-300">
                                             <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center shrink-0 shadow-sm mt-1">
                                                 <Bot size={16} className="text-white" />
                                             </div>
@@ -352,16 +462,18 @@ export const ChatPage: React.FC = () => {
                                 disabled={sending}
                                 isSending={sending}
                                 onStop={handleStop}
+                                secretaryMode={secretaryMode}
+                                onSecretaryModeChange={setSecretaryMode}
                             />
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 relative z-0">
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 relative z-0 px-4">
                         <div className="w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-black/20 border border-white/5">
                             <Bot size={32} className="text-primary-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-200 mb-2">Welcome to AI Chat</h3>
-                        <p className="text-gray-400 max-w-md text-center">
+                        <h3 className="text-xl font-semibold text-gray-200 mb-2 text-center">Welcome to AI Chat</h3>
+                        <p className="text-gray-400 max-w-md text-center text-sm sm:text-base">
                             Select a chat from the sidebar or start a new conversation to begin.
                         </p>
                         <button

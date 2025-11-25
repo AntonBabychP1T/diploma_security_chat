@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     MEMORY_EXTRACT_MAX_TOKENS: int = 10000
     MEMORY_INJECT_MAX_TOKENS: int = 10000
     AUDIO_TRANSCRIBE_MODEL: str = "gpt-4o-mini-transcribe"
+    FRONTEND_PUBLIC_URL: str = "http://localhost:5173"
     
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache
