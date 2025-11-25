@@ -16,12 +16,12 @@ import json
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
-@router.post("/", response_model=Chat)
+@router.post("", response_model=Chat)
 async def create_chat(chat: ChatCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = ChatService(db, user_id=current_user.id)
     return await service.create_chat(chat)
 
-@router.get("/", response_model=List[Chat])
+@router.get("", response_model=List[Chat])
 async def get_chats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = ChatService(db, user_id=current_user.id)
     return await service.get_chats()

@@ -39,23 +39,39 @@ class OpenAIProvider(LLMProvider):
                 "messages": messages,
                 "max_completion_tokens": max_completion_tokens
             }
+            if "response_format" in options:
+                kwargs["response_format"] = options["response_format"]
+            
+            if "tools" in options:
+                kwargs["tools"] = options["tools"]
+            if "tool_choice" in options:
+                kwargs["tool_choice"] = options["tool_choice"]
             
             if temperature is not None:
                 kwargs["temperature"] = temperature
 
             response = await self.client.chat.completions.create(**kwargs)
 
-            content = response.choices[0].message.content
+            message = response.choices[0].message
+            content = message.content
+            tool_calls = message.tool_calls if hasattr(message, "tool_calls") else None
+            
             usage = response.usage.model_dump() if response.usage else {}
+
+            meta_data = {
+                "provider": "openai",
+                "model": model,
+                "usage": usage,
+                "finish_reason": response.choices[0].finish_reason,
+            }
+            
+            if tool_calls:
+                meta_data["tool_calls"] = [t.model_dump() for t in tool_calls]
 
             return ProviderResponse(
                 content=content,
-                meta_data={
-                    "provider": "openai",
-                    "model": model,
-                    "usage": usage,
-                    "finish_reason": response.choices[0].finish_reason,
-                },
+                tool_calls=tool_calls, # Ensure ProviderResponse supports this or add to meta_data if strictly typed
+                meta_data=meta_data,
             )
         except Exception as e:
             # Retry once without temperature if the error is about unsupported temperature value

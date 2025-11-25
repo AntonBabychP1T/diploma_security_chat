@@ -11,9 +11,10 @@ interface Props {
     onNewChat: () => void;
     onDeleteChat: (id: number) => void;
     onRenameChat: (id: number, newTitle: string) => void;
+    onCloseSidebar?: () => void;
 }
 
-export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDeleteChat, onRenameChat }) => {
+export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDeleteChat, onRenameChat, onCloseSidebar }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -51,12 +52,20 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
         }
     };
 
+    const handleNavigateChat = (id: number) => {
+        navigate(`/chats/${id}`);
+        onCloseSidebar?.();
+    };
+
     return (
-        <div className="w-72 flex flex-col h-full bg-gray-950 border-r border-white/5 relative z-20">
+        <div className="w-full md:w-72 flex flex-col h-full bg-gray-950 border-r border-white/5 relative z-20">
             {/* Header Area */}
             <div className="p-4 space-y-4">
                 <button
-                    onClick={onNewChat}
+                    onClick={() => {
+                        onNewChat();
+                        onCloseSidebar?.();
+                    }}
                     className="w-full group flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl py-3 px-4 transition-all duration-200 shadow-lg shadow-primary-900/20 font-medium"
                 >
                     <Plus size={20} className="group-hover:scale-110 transition-transform" />
@@ -84,7 +93,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                 {filteredChats.map(chat => (
                     <div
                         key={chat.id}
-                        onClick={() => navigate(`/chats/${chat.id}`)}
+                        onClick={() => handleNavigateChat(chat.id)}
                         className={clsx(
                             "group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
                             activeChatId === chat.id

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSelector } from './StyleSelector';
-import { Bot } from 'lucide-react';
+import { Bot, Sparkles } from 'lucide-react';
 
 interface Option {
     id: string;
@@ -17,6 +17,7 @@ interface Props {
     onStyleChange: (style: string) => void;
     onProviderChange: (provider: string) => void;
     onModelChange: (model: string) => void;
+    onSecretary?: () => void;
 }
 
 export const ChatHeader: React.FC<Props> = ({
@@ -28,18 +29,19 @@ export const ChatHeader: React.FC<Props> = ({
     modelOptions,
     onStyleChange,
     onProviderChange,
-    onModelChange
+    onModelChange,
+    onSecretary
 }) => {
     return (
-        <div className="h-16 border-b border-white/5 bg-gray-900/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
+        <div className="h-16 border-b border-white/5 bg-gray-900/50 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
             <div className="flex items-center gap-4">
                 <h2 className="font-semibold text-lg text-gray-100 truncate max-w-md">
                     {title}
                 </h2>
             </div>
 
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-gray-800/50 border border-white/10 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2 sm:gap-3">
+                <div className="hidden sm:flex items-center gap-2 bg-gray-800/50 border border-white/10 rounded-xl px-3 py-2">
                     <Bot size={14} className="text-primary-400" />
                     <select
                         value={provider}
@@ -66,6 +68,16 @@ export const ChatHeader: React.FC<Props> = ({
                     </select>
                 </div>
                 <StyleSelector value={style} onChange={onStyleChange} />
+                {onSecretary && (
+                    <button
+                        onClick={onSecretary}
+                        className="flex items-center gap-1 px-3 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-all shadow-primary-900/20 shadow"
+                    >
+                        <Sparkles size={14} />
+                        <span className="hidden sm:inline">Секретар</span>
+                        <span className="sm:hidden">AI</span>
+                    </button>
+                )}
             </div>
         </div>
     );

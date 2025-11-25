@@ -3,7 +3,8 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 class ProviderResponse(BaseModel):
-    content: str
+    content: Optional[str] = None
+    tool_calls: Optional[List[Any]] = None
     meta_data: Dict[str, Any] = {}
 
 class LLMProvider(ABC):
