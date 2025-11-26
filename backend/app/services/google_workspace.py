@@ -1,7 +1,12 @@
 import httpx
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+import base64
+import logging
+from email.mime.text import MIMEText
 from app.schemas.secretary import EmailMessage, CalendarEvent, TimeSlot, EmailFilters
+
+logger = logging.getLogger(__name__)
 
 class GoogleWorkspaceClient:
     GMAIL_API_URL = "https://gmail.googleapis.com/gmail/v1/users/me"
@@ -181,3 +186,49 @@ class GoogleWorkspaceClient:
                 ))
                 
         return slots
+
+
+
+    async def send_email(self, to: List[str], subject: str, body: str) -> Dict[str, Any]:
+        message = MIMEText(body)
+        message['to'] = ", ".join(to)
+        message['subject'] = subject
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        
+        payload = {'raw': raw}
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.GMAIL_API_URL}/messages/send", headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+
+    async def create_event(self, summary: str, start_time: datetime, end_time: datetime, attendees: List[str]) -> Dict[str, Any]:
+        event = {
+            'summary': summary,
+            'start': {
+                'dateTime': start_time.isoformat(),
+                'timeZone': 'UTC', # Assuming input is UTC or offset-aware
+            },
+            'end': {
+                'dateTime': end_time.isoformat(),
+                'timeZone': 'UTC',
+            },
+            'attendees': [{'email': email} for email in attendees],
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                logger.info(f"Creating calendar event: {summary} from {start_time} to {end_time}")
+                response = await client.post(
+                    f"{self.CALENDAR_API_URL}/calendars/primary/events",
+                    headers=self.headers,
+                    json=event
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error creating event: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error creating event: {str(e)}")
+            raise

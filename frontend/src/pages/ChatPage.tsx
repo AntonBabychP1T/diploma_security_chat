@@ -174,7 +174,7 @@ export const ChatPage: React.FC = () => {
 
         if (secretaryCommand) {
             try {
-                const res = await askSecretary(secretaryQuery || text);
+                const res = await askSecretary(secretaryQuery || text, activeChat.id);
                 setActiveChat(prev => {
                     if (!prev) return null;
                     return {
@@ -359,7 +359,7 @@ export const ChatPage: React.FC = () => {
         // Auto trigger secretary if enabled and keywords match
         if (!secretaryCommand && autoSecretary && /\b(calendar|gmail|meeting|події|календар|лист|пошта|секретар)\b/i.test(text)) {
             try {
-                const res = await askSecretary(text);
+                const res = await askSecretary(text, activeChat.id);
                 setActiveChat(prev => {
                     if (!prev) return null;
                     return {
@@ -431,29 +431,6 @@ export const ChatPage: React.FC = () => {
                             onStyleChange={setStyle}
                             onProviderChange={handleProviderChange}
                             onModelChange={setModel}
-                            onSecretary={async () => {
-                                const q = prompt("Запит до секретаря (Gmail/Calendar):", "Покажи останній лист і події на сьогодні");
-                                if (!q) return;
-                                try {
-                                    const res = await askSecretary(q);
-                                    setActiveChat(prev => {
-                                        if (!prev) return null;
-                                        return {
-                                            ...prev,
-                                            messages: [...(prev.messages || []), {
-                                                id: Date.now(),
-                                                chat_id: activeChat.id,
-                                                role: 'assistant',
-                                                content: `Секретар: ${res.data.response}`,
-                                                created_at: new Date().toISOString()
-                                            }]
-                                        };
-                                    });
-                                } catch (err) {
-                                    console.error("Secretary agent failed", err);
-                                    alert("Секретар недоступний або немає доступу до Gmail/Calendar.");
-                                }
-                            }}
                             isArenaMode={isArenaMode}
                             onArenaModeChange={setIsArenaMode}
                             arenaModelA={arenaModelA}

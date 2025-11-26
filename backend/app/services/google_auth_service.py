@@ -10,7 +10,7 @@ class GoogleAuthService:
     GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
     SCOPES = [
         "https://www.googleapis.com/auth/gmail.readonly",
-        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar",  # Full calendar access to create/edit events
         "https://www.googleapis.com/auth/userinfo.email",
         "openid"
     ]

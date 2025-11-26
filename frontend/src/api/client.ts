@@ -135,5 +135,26 @@ export const transcribeAudio = (blob: Blob) => {
     });
 };
 
-export const askSecretary = (query: string) =>
-    api.post<{ response: string }>('/secretary/ask', { query });
+export const askSecretary = (query: string, chatId: number) =>
+    api.post<{ response: string }>('/secretary/ask', { query, chat_id: chatId });
+
+export interface ConnectedAccounts {
+    google: Array<{ email: string; label: string }>;
+    microsoft: Array<{ email: string; label: string }>;
+}
+
+export interface AgentSettings {
+    custom_instructions: string;
+}
+
+export const getConnectedAccounts = () => api.get<ConnectedAccounts>('/secretary/accounts');
+
+export const getAgentSettings = () => api.get<AgentSettings>('/agent-settings');
+
+export const updateAgentSettings = (settings: AgentSettings) => api.put<AgentSettings>('/agent-settings', settings);
+
+export const deleteAccount = (provider: 'google' | 'microsoft', id: number) =>
+    api.delete(`/auth/${provider}/accounts/${id}`);
+
+export const updateAccountLabel = (provider: 'google' | 'microsoft', id: number, label: string) =>
+    api.patch(`/auth/${provider}/accounts/${id}`, { label });

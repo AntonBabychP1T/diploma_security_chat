@@ -22,7 +22,7 @@ class SecretaryService:
         self.provider = ProviderFactory.get_provider("openai")
         self.tools_impl = SecretaryTools(db, user_id)
 
-    async def process_request(self, query: str) -> str:
+    async def process_request(self, query: str, history: Optional[List[dict]] = None) -> str:
         # 1. Define Tools
         tools = [
             {
@@ -81,22 +81,40 @@ class SecretaryService:
                     }
                 }
             }
+            ,
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_event",
+                    "description": "Create a calendar event with optional attendees.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "account_label": {"type": "string", "description": "The account label to use (e.g., 'work', 'personal'). Defaults to 'work'."},
+                            "summary": {"type": "string"},
+                            "start_time": {"type": "string", "description": "Start time ISO (YYYY-MM-DDTHH:MM:SS)"},
+                            "end_time": {"type": "string", "description": "End time ISO (YYYY-MM-DDTHH:MM:SS)"},
+                            "attendees": {"type": "array", "items": {"type": "string"}, "description": "List of attendee emails"}
+                        },
+                        "required": ["summary", "start_time", "end_time"]
+                    }
+                }
+            }
         ]
 
         # 2. Prepare Messages
         current_time = datetime.utcnow().isoformat()
         system_prompt = f"""You are a helpful mail and calendar secretary agent.
 Current time (UTC): {current_time}
-You have access to tools to read emails and calendars.
-When a user asks a question, use the available tools to get the information.
+You have access to tools to read emails and calendars, find slots, and create events.
+Use the tools directly without asking for extra confirmation unless the user is ambiguous.
 If the user asks for "today", "tomorrow", etc., calculate the ISO dates based on the Current time.
-Always return a helpful natural language response to the user based on the tool outputs.
-If you need to check multiple accounts, you can call tools multiple times.
+Be concise: respond in 1-3 short sentences summarizing the tool results.
 """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query}
-        ]
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history[-8:])  # keep limited context
+        messages.append({"role": "user", "content": query})
 
         # 3. Agent Loop
         max_turns = 5
@@ -150,6 +168,14 @@ If you need to check multiple accounts, you can call tools multiple times.
                             arguments.get("end_time"),
                             arguments.get("duration_minutes")
                         )
+                    elif function_name == "create_event":
+                        result_content = await self.tools_impl.create_event(
+                            arguments.get("account_label", "work"),
+                            arguments.get("summary", "Untitled"),
+                            arguments.get("start_time"),
+                            arguments.get("end_time"),
+                            arguments.get("attendees", []) or []
+                        )
                     else:
                         result_content = f"Error: Unknown tool {function_name}"
                 except Exception as e:
@@ -166,4 +192,12 @@ If you need to check multiple accounts, you can call tools multiple times.
 
     async def get_connected_accounts(self) -> List[GoogleAccount]:
         result = await self.db.execute(select(GoogleAccount).where(GoogleAccount.user_id == self.user_id))
-        return result.scalars().all()
+        google_accounts = result.scalars().all()
+        # Microsoft placeholder if implemented later
+        try:
+            from app.models.microsoft_account import MicrosoftAccount
+            result_ms = await self.db.execute(select(MicrosoftAccount).where(MicrosoftAccount.user_id == self.user_id))
+            ms_accounts = result_ms.scalars().all()
+        except Exception:
+            ms_accounts = []
+        return {"google": google_accounts, "microsoft": ms_accounts}

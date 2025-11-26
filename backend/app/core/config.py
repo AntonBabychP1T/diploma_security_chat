@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
 
+    # Microsoft OAuth
+    MICROSOFT_CLIENT_ID: str | None = None
+    MICROSOFT_CLIENT_SECRET: str | None = None
+    MICROSOFT_REDIRECT_URI: str | None = None
+    MICROSOFT_TENANT_ID: str = "common"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache

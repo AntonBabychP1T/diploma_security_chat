@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSelector } from './StyleSelector';
-import { Bot, Sparkles, Swords } from 'lucide-react';
+import { Bot, Swords } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Option {
@@ -18,7 +18,6 @@ interface Props {
     onStyleChange: (style: string) => void;
     onProviderChange: (provider: string) => void;
     onModelChange: (model: string) => void;
-    onSecretary?: () => void;
     isArenaMode: boolean;
     onArenaModeChange: (enabled: boolean) => void;
     arenaModelA: string;
@@ -37,7 +36,6 @@ export const ChatHeader: React.FC<Props> = ({
     onStyleChange,
     onProviderChange,
     onModelChange,
-    onSecretary,
     isArenaMode,
     onArenaModeChange,
     arenaModelA,
@@ -122,16 +120,6 @@ export const ChatHeader: React.FC<Props> = ({
                     )}
                 </div>
                 <StyleSelector value={style} onChange={onStyleChange} />
-                {onSecretary && (
-                    <button
-                        onClick={onSecretary}
-                        className="flex items-center gap-1 px-3 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-all shadow-primary-900/20 shadow"
-                    >
-                        <Sparkles size={14} />
-                        <span className="hidden sm:inline">Секретар</span>
-                        <span className="sm:hidden">AI</span>
-                    </button>
-                )}
             </div>
         </div>
     );

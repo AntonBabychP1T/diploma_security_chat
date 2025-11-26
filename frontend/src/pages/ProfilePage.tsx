@@ -7,7 +7,11 @@ import {
     fetchMemories,
     addMemory,
     deleteMemory,
-    MemoryItem
+    MemoryItem,
+    getConnectedAccounts,
+    ConnectedAccounts,
+    deleteAccount,
+    updateAccountLabel
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -24,7 +28,8 @@ import {
     Brain,
     Plus,
     Trash2,
-    Link2
+    Link2,
+    Pencil
 } from 'lucide-react';
 
 const memoryCategories = [
@@ -63,6 +68,9 @@ export const ProfilePage: React.FC = () => {
         return stored === 'true';
     });
     const [googleConnecting, setGoogleConnecting] = useState(false);
+    const [microsoftConnecting, setMicrosoftConnecting] = useState(false);
+    const [accounts, setAccounts] = useState<ConnectedAccounts>({ google: [], microsoft: [] });
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -71,7 +79,52 @@ export const ProfilePage: React.FC = () => {
             setProfile(user);
         }
         loadMemories();
+        loadAccounts();
     }, [user]);
+
+    const loadAccounts = async () => {
+        setLoadingAccounts(true);
+        try {
+            const res = await getConnectedAccounts();
+            setAccounts(res.data || { google: [], microsoft: [] });
+        } catch (err) {
+            console.error("Failed to load accounts", err);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
+
+    const handleDeleteAccount = async (provider: 'google' | 'microsoft', id: number) => {
+        if (!window.confirm('Ви впевнені, що хочете видалити цей акаунт?')) return;
+
+        try {
+            await deleteAccount(provider, id);
+            await loadAccounts();
+            setSuccess('Акаунт успішно видалено');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Не вдалося видалити акаунт');
+        }
+    };
+
+    const handleUpdateLabel = async (provider: 'google' | 'microsoft', id: number, currentLabel: string) => {
+        const newLabel = window.prompt('Введіть нову мітку (personal, work, other):', currentLabel);
+        if (!newLabel || newLabel === currentLabel) return;
+
+        if (!['personal', 'work', 'other'].includes(newLabel)) {
+            alert('Мітка повинна бути однією з: personal, work, other');
+            return;
+        }
+
+        try {
+            await updateAccountLabel(provider, id, newLabel);
+            await loadAccounts();
+            setSuccess('Мітку успішно оновлено');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Не вдалося оновити мітку');
+        }
+    };
 
     const loadProfile = async () => {
         setLoadingProfile(true);
@@ -339,14 +392,83 @@ export const ProfilePage: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">Інтеграції</p>
-                                <h2 className="text-lg font-semibold text-white">Google OAuth</h2>
+                                <h2 className="text-lg font-semibold text-white">Підключені акаунти</h2>
                             </div>
                         </div>
                     </div>
-                    <p className="text-sm text-gray-400 mb-4">
-                        Підключіть Gmail та Google Calendar, щоб секретар-агент міг читати пошту та події.
-                    </p>
-                    <div className="flex items-center gap-3">
+
+                    <div className="space-y-4 mb-6">
+                        {loadingAccounts ? (
+                            <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                <Loader2 className="animate-spin" size={14} />
+                                <span>Завантаження акаунтів...</span>
+                            </div>
+                        ) : (
+                            <>
+                                {(!accounts?.google?.length && !accounts?.microsoft?.length) && (
+                                    <p className="text-sm text-gray-500 italic">Немає підключених акаунтів.</p>
+                                )}
+
+                                {(accounts?.google || []).map((acc: any) => (
+                                    <div key={`google-${acc.id}`} className="flex items-center justify-between bg-gray-800/40 border border-white/5 rounded-xl p-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xs">G</div>
+                                            <div>
+                                                <p className="text-sm font-medium text-white">{acc.email}</p>
+                                                <p className="text-xs text-gray-500">Google • {acc.label}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleUpdateLabel('google', acc.id, acc.label)}
+                                                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                                title="Змінити мітку"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteAccount('google', acc.id)}
+                                                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Видалити акаунт"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {(accounts?.microsoft || []).map((acc: any) => (
+                                    <div key={`ms-${acc.id}`} className="flex items-center justify-between bg-gray-800/40 border border-white/5 rounded-xl p-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-[#00a4ef] flex items-center justify-center text-white font-bold text-xs">MS</div>
+                                            <div>
+                                                <p className="text-sm font-medium text-white">{acc.email}</p>
+                                                <p className="text-xs text-gray-500">Microsoft • {acc.label}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleUpdateLabel('microsoft', acc.id, acc.label)}
+                                                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                                title="Змінити мітку"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteAccount('microsoft', acc.id)}
+                                                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Видалити акаунт"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={async () => {
                                 try {
@@ -370,21 +492,52 @@ export const ProfilePage: React.FC = () => {
                                 }
                             }}
                             disabled={googleConnecting}
-                            className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-60 text-white rounded-xl font-medium transition-all shadow-lg shadow-primary-900/20"
+                            className="px-4 py-2.5 bg-white text-gray-900 hover:bg-gray-100 disabled:opacity-60 rounded-xl font-medium transition-all shadow-lg shadow-white/5 flex items-center gap-2"
                         >
-                            {googleConnecting ? 'Підключення...' : 'Підключити Google'}
+                            {googleConnecting ? <Loader2 className="animate-spin" size={16} /> : <span>Google</span>}
+                            <span>{googleConnecting ? 'Connecting...' : 'Connect Google'}</span>
                         </button>
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={autoSecretary}
-                                    onChange={(e) => handleToggleAutoSecretary(e.target.checked)}
-                                    className="accent-primary-500"
-                                />
-                                <span>Автозапуск секретаря за ключовими словами</span>
-                            </label>
-                        </div>
+
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setMicrosoftConnecting(true);
+                                    const res = await fetch('/api/auth/microsoft/login', {
+                                        headers: {
+                                            'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+                                        }
+                                    });
+                                    const data = await res.json();
+                                    if (data.url) {
+                                        window.location.href = data.url;
+                                    } else {
+                                        alert('Не вдалося отримати Microsoft OAuth URL');
+                                    }
+                                } catch (err) {
+                                    console.error('Microsoft connect failed', err);
+                                    alert('Не вдалося ініціювати OAuth, спробуйте ще раз.');
+                                } finally {
+                                    setMicrosoftConnecting(false);
+                                }
+                            }}
+                            disabled={microsoftConnecting}
+                            className="px-4 py-2.5 bg-[#00a4ef] text-white hover:bg-[#0078d4] disabled:opacity-60 rounded-xl font-medium transition-all shadow-lg shadow-[#00a4ef]/20 flex items-center gap-2"
+                        >
+                            {microsoftConnecting ? <Loader2 className="animate-spin" size={16} /> : <span>Microsoft</span>}
+                            <span>{microsoftConnecting ? 'Connecting...' : 'Connect Microsoft'}</span>
+                        </button>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-white/5">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-300 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={autoSecretary}
+                                onChange={(e) => handleToggleAutoSecretary(e.target.checked)}
+                                className="accent-primary-500 w-4 h-4 rounded border-gray-600 bg-gray-700"
+                            />
+                            <span>Автозапуск секретаря за ключовими словами</span>
+                        </label>
                     </div>
                 </div>
 

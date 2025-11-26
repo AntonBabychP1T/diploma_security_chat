@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import logging
 
 from app.models.google_account import GoogleAccount
+from app.models.microsoft_account import MicrosoftAccount
 from app.services.google_workspace import GoogleWorkspaceClient
 from app.services.google_auth_service import GoogleAuthService
 from app.schemas.secretary import EmailFilters, EmailMessage, CalendarEvent, TimeSlot
@@ -87,37 +88,100 @@ class SecretaryTools:
             logger.error(f"Error finding slots: {e}")
             return f"Error finding slots: {str(e)}"
 
-    async def _get_client(self, label: str) -> Optional[GoogleWorkspaceClient]:
-        # Resolve account
+    async def send_email(self, account_label: str, to: List[str], subject: str, body: str) -> str:
+        """
+        Sends an email.
+        """
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+
+        try:
+            await client.send_email(to, subject, body)
+            return f"Email sent to {', '.join(to)} with subject '{subject}'."
+        except Exception as e:
+            logger.error(f"Error sending email: {e}")
+            return f"Error sending email: {str(e)}"
+
+    async def create_event(self, account_label: str, summary: str, start_time: str, end_time: str, attendees: List[str]) -> str:
+        """
+        Creates a calendar event.
+        """
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+
+        try:
+            start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+            
+            await client.create_event(summary, start, end, attendees)
+            return f"Event '{summary}' created from {start_time} to {end_time} with attendees {', '.join(attendees)}."
+        except Exception as e:
+            logger.error(f"Error creating event: {e}")
+            return f"Error creating event: {str(e)}"
+
+    async def _get_client(self, label: str) -> Optional[Any]: # Returns MailCalendarProvider
+        # 1. Try Google Accounts
         query = select(GoogleAccount).where(GoogleAccount.user_id == self.user_id)
         result = await self.db.execute(query)
-        accounts = result.scalars().all()
+        google_accounts = result.scalars().all()
         
-        target_account = None
+        # 2. Try Microsoft Accounts
+        query_ms = select(MicrosoftAccount).where(MicrosoftAccount.user_id == self.user_id)
+        result_ms = await self.db.execute(query_ms)
+        ms_accounts = result_ms.scalars().all()
+        
+        all_accounts = []
+        for acc in google_accounts:
+            all_accounts.append({"type": "google", "account": acc})
+        for acc in ms_accounts:
+            all_accounts.append({"type": "microsoft", "account": acc})
+            
+        target = None
         if not label or label.lower() == "all":
-            # Default to first or specific logic? For now, pick first or 'work' if exists
-            target_account = next((a for a in accounts if a.label == "work"), accounts[0] if accounts else None)
+            # Default to work, then first available
+            target = next((a for a in all_accounts if a["account"].label == "work"), all_accounts[0] if all_accounts else None)
         else:
-            target_account = next((a for a in accounts if a.label.lower() == label.lower()), None)
+            target = next((a for a in all_accounts if a["account"].label.lower() == label.lower()), None)
             
-        # Fallback: If 'work' was requested (default) but not found, and we have accounts, use the first one.
-        if not target_account and label == "work" and accounts:
-            target_account = accounts[0]
-            
-        if not target_account:
+        if not target:
+            # Fallback if specific label not found but 'work' was requested (default)
+            if label == "work" and all_accounts:
+                target = all_accounts[0]
+        
+        if not target:
             return None
-
-        # Check expiry
-        if target_account.token_expiry and target_account.token_expiry < datetime.utcnow() + timedelta(minutes=5):
-            if not target_account.refresh_token:
+            
+        account = target["account"]
+        account_type = target["type"]
+        
+        # Check expiry and refresh
+        if account.token_expiry and account.token_expiry < datetime.utcnow() + timedelta(minutes=5):
+            if not account.refresh_token:
                 return None
             try:
-                new_tokens = await GoogleAuthService.refresh_access_token(target_account.refresh_token)
-                target_account.access_token = new_tokens["access_token"]
-                target_account.token_expiry = datetime.utcnow() + timedelta(seconds=new_tokens.get("expires_in", 3600))
+                if account_type == "google":
+                    new_tokens = await GoogleAuthService.refresh_access_token(account.refresh_token)
+                    account.access_token = new_tokens["access_token"]
+                    account.token_expiry = datetime.utcnow() + timedelta(seconds=new_tokens.get("expires_in", 3600))
+                elif account_type == "microsoft":
+                    from app.services.microsoft_auth_service import MicrosoftAuthService
+                    new_tokens = await MicrosoftAuthService.refresh_access_token(account.refresh_token)
+                    account.access_token = new_tokens["access_token"]
+                    account.token_expiry = datetime.utcnow() + timedelta(seconds=new_tokens.get("expires_in", 3600))
+                    if "refresh_token" in new_tokens:
+                        account.refresh_token = new_tokens["refresh_token"]
+                
                 await self.db.commit()
             except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
+                logger.error(f"Failed to refresh token for {account_type} account {account.id}: {e}")
                 return None
-        
-        return GoogleWorkspaceClient(target_account.access_token)
+
+        if account_type == "google":
+            return GoogleWorkspaceClient(account.access_token)
+        elif account_type == "microsoft":
+            from app.services.microsoft_graph import MicrosoftGraphClient
+            return MicrosoftGraphClient(account.access_token)
+            
+        return None
