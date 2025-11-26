@@ -12,7 +12,9 @@ from app.services.memory_service import MemoryService
 from app.routers.auth import get_current_user
 from app.models.user import User
 import asyncio
+import asyncio
 import json
+from typing import Union
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -50,28 +52,39 @@ async def delete_chat(chat_id: int, db: AsyncSession = Depends(get_db), current_
         raise HTTPException(status_code=404, detail="Chat not found")
     return {"status": "ok"}
 
-@router.post("/{chat_id}/messages", response_model=Message)
+@router.post("/{chat_id}/messages", response_model=Union[Message, List[Message]])
 async def send_message(chat_id: int, request: ChatRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = ChatService(db, user_id=current_user.id)
     try:
-        assistant_message = await service.send_message(
-            chat_id=chat_id, 
-            content=request.message,
-            style=request.style or "default",
-            provider_name=request.provider or "openai",
-            model=request.model
-        )
+        if request.models and len(request.models) > 1:
+            # Arena Mode
+            assistant_messages = await service.send_arena_message(
+                chat_id=chat_id,
+                content=request.message,
+                models=request.models,
+                style=request.style or "default"
+            )
+            return assistant_messages
+        else:
+            # Standard Mode
+            assistant_message = await service.send_message(
+                chat_id=chat_id, 
+                content=request.message,
+                style=request.style or "default",
+                provider_name=request.provider or "openai",
+                model=request.model
+            )
 
-        # Schedule memory extraction in background to keep latency low
-        async def run_memory_update(user_id: int, fragment: str):
-            async with SessionLocal() as session:
-                mem_service = MemoryService(session, user_id)
-                await mem_service.update_store_from_extractor(fragment)
-
-        dialog_fragment = f"user: {request.message}\nassistant: {assistant_message.content}"
-        background_tasks.add_task(run_memory_update, current_user.id, dialog_fragment)
-
-        return assistant_message
+            # Schedule memory extraction in background to keep latency low
+            async def run_memory_update(user_id: int, fragment: str):
+                async with SessionLocal() as session:
+                    mem_service = MemoryService(session, user_id)
+                    await mem_service.update_store_from_extractor(fragment)
+    
+            dialog_fragment = f"user: {request.message}\nassistant: {assistant_message.content}"
+            background_tasks.add_task(run_memory_update, current_user.id, dialog_fragment)
+    
+            return assistant_message
     except ValueError:
         raise HTTPException(status_code=404, detail="Chat not found")
     except Exception as e:
@@ -107,3 +120,17 @@ async def send_message_stream(
         "Cache-Control": "no-cache",
         "Connection": "keep-alive"
     })
+
+@router.post("/{chat_id}/messages/{message_id}/vote")
+async def vote_message(
+    chat_id: int, 
+    message_id: int, 
+    vote_type: str, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    service = ChatService(db, user_id=current_user.id)
+    success = await service.vote_message(chat_id, message_id, vote_type)
+    if not success:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return {"status": "ok"}

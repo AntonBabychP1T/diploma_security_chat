@@ -5,9 +5,9 @@ import { Sidebar } from '../components/Sidebar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
 import { ChatHeader } from '../components/ChatHeader';
+import { ArenaMessagePair } from '../components/ArenaMessagePair';
 import { Loader2, Bot } from 'lucide-react';
-import axios from 'axios';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import clsx from 'clsx';
 
 export const ChatPage: React.FC = () => {
@@ -39,11 +39,15 @@ export const ChatPage: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const currentModelOptions = modelsByProvider[provider] || [];
     const [abortController, setAbortController] = useState<AbortController | null>(null);
-    const [optimisticUserId, setOptimisticUserId] = useState<number | null>(null);
     const [optimisticAssistantId, setOptimisticAssistantId] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [secretaryMode, setSecretaryMode] = useState(false);
     const autoSecretary = typeof window !== 'undefined' ? localStorage.getItem('auto_secretary') === 'true' : false;
+
+    // Arena Mode State
+    const [isArenaMode, setIsArenaMode] = useState(false);
+    const [arenaModelA, setArenaModelA] = useState(modelsByProvider["openai"][1].id); // Default to nano
+    const [arenaModelB, setArenaModelB] = useState(modelsByProvider["gemini"][0].id); // Default to flash
 
     useEffect(() => {
         fetchChats();
@@ -156,6 +160,7 @@ export const ChatPage: React.FC = () => {
         // Optimistic user message
         const optimisticMsg: Message = {
             id: Date.now(),
+            chat_id: activeChat.id,
             role: 'user',
             content: text,
             created_at: new Date().toISOString()
@@ -169,13 +174,14 @@ export const ChatPage: React.FC = () => {
 
         if (secretaryCommand) {
             try {
-                const res = await askSecretary(secretaryQuery || text);
+                const res = await askSecretary(secretaryQuery || text, activeChat.id);
                 setActiveChat(prev => {
                     if (!prev) return null;
                     return {
                         ...prev,
                         messages: [...(prev.messages || []), {
                             id: Date.now() + 1,
+                            chat_id: activeChat.id,
                             role: 'assistant',
                             content: `Секретар: ${res.data.response}`,
                             created_at: new Date().toISOString()
@@ -190,6 +196,7 @@ export const ChatPage: React.FC = () => {
                         ...prev,
                         messages: [...(prev.messages || []), {
                             id: Date.now() + 2,
+                            chat_id: activeChat.id,
                             role: 'assistant',
                             content: "Секретар недоступний або без доступу до Gmail/Calendar.",
                             created_at: new Date().toISOString()
@@ -200,9 +207,42 @@ export const ChatPage: React.FC = () => {
             return;
         }
         setSending(true);
-        setOptimisticUserId(optimisticMsg.id);
 
-        // Placeholder assistant message for streaming updates
+        // Arena Mode: Use non-streaming endpoint
+        if (isArenaMode) {
+            try {
+                const res = await api.post<Message | Message[]>(`/chats/${activeChat.id}/messages`, {
+                    message: text,
+                    style: style,
+                    models: [arenaModelA, arenaModelB]
+                });
+
+                // Arena mode returns an array of messages
+                const messages = Array.isArray(res.data) ? res.data : [res.data];
+
+                console.log('Arena response:', res.data);
+                console.log('Messages array:', messages);
+                console.log('Messages count:', messages.length);
+
+                // Add both assistant messages to chat
+                setActiveChat(prev => {
+                    if (!prev) return null;
+                    const newMessages = [...(prev.messages || []), ...messages];
+                    console.log('New messages array length:', newMessages.length);
+                    return {
+                        ...prev,
+                        messages: newMessages
+                    };
+                });
+            } catch (err) {
+                console.error("Failed to send arena message", err);
+            } finally {
+                setSending(false);
+            }
+            return;
+        }
+
+        // Standard Mode: Use streaming endpoint
         const assistantTempId = Date.now() + 1;
         setOptimisticAssistantId(assistantTempId);
         setActiveChat(prev => {
@@ -211,6 +251,7 @@ export const ChatPage: React.FC = () => {
                 ...prev,
                 messages: [...(prev.messages || []), {
                     id: assistantTempId,
+                    chat_id: activeChat.id,
                     role: 'assistant',
                     content: '',
                     created_at: new Date().toISOString()
@@ -312,20 +353,20 @@ export const ChatPage: React.FC = () => {
         } finally {
             setSending(false);
             setAbortController(null);
-            setOptimisticUserId(null);
             setOptimisticAssistantId(null);
         }
 
         // Auto trigger secretary if enabled and keywords match
         if (!secretaryCommand && autoSecretary && /\b(calendar|gmail|meeting|події|календар|лист|пошта|секретар)\b/i.test(text)) {
             try {
-                const res = await askSecretary(text);
+                const res = await askSecretary(text, activeChat.id);
                 setActiveChat(prev => {
                     if (!prev) return null;
                     return {
                         ...prev,
                         messages: [...(prev.messages || []), {
                             id: Date.now(),
+                            chat_id: activeChat.id,
                             role: 'assistant',
                             content: `Секретар: ${res.data.response}`,
                             created_at: new Date().toISOString()
@@ -390,28 +431,12 @@ export const ChatPage: React.FC = () => {
                             onStyleChange={setStyle}
                             onProviderChange={handleProviderChange}
                             onModelChange={setModel}
-                            onSecretary={async () => {
-                                const q = prompt("Запит до секретаря (Gmail/Calendar):", "Покажи останній лист і події на сьогодні");
-                                if (!q) return;
-                                try {
-                                    const res = await askSecretary(q);
-                                    setActiveChat(prev => {
-                                        if (!prev) return null;
-                                        return {
-                                            ...prev,
-                                            messages: [...(prev.messages || []), {
-                                                id: Date.now(),
-                                                role: 'assistant',
-                                                content: `Секретар: ${res.data.response}`,
-                                                created_at: new Date().toISOString()
-                                            }]
-                                        };
-                                    });
-                                } catch (err) {
-                                    console.error("Secretary agent failed", err);
-                                    alert("Секретар недоступний або немає доступу до Gmail/Calendar.");
-                                }
-                            }}
+                            isArenaMode={isArenaMode}
+                            onArenaModeChange={setIsArenaMode}
+                            arenaModelA={arenaModelA}
+                            arenaModelB={arenaModelB}
+                            onArenaModelAChange={setArenaModelA}
+                            onArenaModelBChange={setArenaModelB}
                         />
 
                         {/* Messages Area */}
@@ -423,18 +448,52 @@ export const ChatPage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="max-w-4xl mx-auto w-full py-4 space-y-6">
-                                    {activeChat.messages?.map((msg, index) => {
-                                        const prevMsg = activeChat.messages?.[index - 1];
-                                        const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role || (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 60000);
+                                    {(() => {
+                                        const renderedMessages = [];
+                                        const messages = activeChat.messages || [];
 
-                                        return (
-                                            <MessageBubble
-                                                key={msg.id}
-                                                message={msg}
-                                                isFirstInGroup={isFirstInGroup}
-                                            />
-                                        );
-                                    })}
+                                        console.log('Total messages to render:', messages.length);
+
+                                        for (let i = 0; i < messages.length; i++) {
+                                            const msg = messages[i];
+                                            const prevMsg = messages[i - 1];
+
+                                            // Check for Arena Pair
+                                            if (msg.meta_data?.comparison_id && msg.role === 'assistant') {
+                                                console.log(`Message ${i}: Found Arena message with comparison_id:`, msg.meta_data.comparison_id, 'Model:', msg.meta_data.model);
+                                                const nextMsg = messages[i + 1];
+                                                if (nextMsg && nextMsg.meta_data?.comparison_id === msg.meta_data.comparison_id) {
+                                                    // Found a pair
+                                                    console.log(`  → Paired with message ${i + 1}, Model:`, nextMsg.meta_data?.model);
+                                                    renderedMessages.push(
+                                                        <ArenaMessagePair
+                                                            key={`arena-${msg.id}`}
+                                                            messageA={msg}
+                                                            messageB={nextMsg}
+                                                            onVote={(id, type) => {
+                                                                console.log("Voted", id, type);
+                                                                // Ideally refresh chat or update local state
+                                                            }}
+                                                        />
+                                                    );
+                                                    i++; // Skip next message
+                                                    continue;
+                                                } else {
+                                                    console.log(`  → No pair found for this Arena message (next message comparison_id: ${nextMsg?.meta_data?.comparison_id})`);
+                                                }
+                                            }
+
+                                            const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role || (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 60000);
+                                            renderedMessages.push(
+                                                <MessageBubble
+                                                    key={msg.id}
+                                                    message={msg}
+                                                    isFirstInGroup={isFirstInGroup}
+                                                />
+                                            );
+                                        }
+                                        return renderedMessages;
+                                    })()}
 
                                     {sending && (
                                         <div className="flex gap-3 sm:gap-4 max-w-4xl mx-auto w-full animate-in fade-in duration-300">

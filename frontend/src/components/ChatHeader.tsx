@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSelector } from './StyleSelector';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Swords } from 'lucide-react';
+import clsx from 'clsx';
 
 interface Option {
     id: string;
@@ -17,7 +18,12 @@ interface Props {
     onStyleChange: (style: string) => void;
     onProviderChange: (provider: string) => void;
     onModelChange: (model: string) => void;
-    onSecretary?: () => void;
+    isArenaMode: boolean;
+    onArenaModeChange: (enabled: boolean) => void;
+    arenaModelA: string;
+    arenaModelB: string;
+    onArenaModelAChange: (model: string) => void;
+    onArenaModelBChange: (model: string) => void;
 }
 
 export const ChatHeader: React.FC<Props> = ({
@@ -30,7 +36,12 @@ export const ChatHeader: React.FC<Props> = ({
     onStyleChange,
     onProviderChange,
     onModelChange,
-    onSecretary
+    isArenaMode,
+    onArenaModeChange,
+    arenaModelA,
+    arenaModelB,
+    onArenaModelAChange,
+    onArenaModelBChange
 }) => {
     return (
         <div className="h-16 border-b border-white/5 bg-gray-900/50 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
@@ -41,43 +52,74 @@ export const ChatHeader: React.FC<Props> = ({
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-                <div className="hidden sm:flex items-center gap-2 bg-gray-800/50 border border-white/10 rounded-xl px-3 py-2">
-                    <Bot size={14} className="text-primary-400" />
-                    <select
-                        value={provider}
-                        onChange={(e) => onProviderChange(e.target.value)}
-                        className="bg-transparent text-sm text-white outline-none"
+                <div className="hidden sm:flex items-center gap-2 bg-gray-800/50 border border-white/10 rounded-xl px-3 py-2 transition-all duration-300">
+                    <button
+                        onClick={() => onArenaModeChange(!isArenaMode)}
+                        className={clsx(
+                            "p-1.5 rounded-lg transition-colors mr-2",
+                            isArenaMode ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700 text-gray-400"
+                        )}
+                        title="Toggle Arena Mode"
                     >
-                        {providerOptions.map((p) => (
-                            <option key={p.id} value={p.id} className="bg-gray-900 text-gray-100">
-                                {p.label}
-                            </option>
-                        ))}
-                    </select>
-                    <span className="text-gray-500">/</span>
-                    <select
-                        value={model}
-                        onChange={(e) => onModelChange(e.target.value)}
-                        className="bg-transparent text-sm text-white outline-none"
-                    >
-                        {modelOptions.map((m) => (
-                            <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
-                                {m.label}
-                            </option>
-                        ))}
-                    </select>
+                        <Swords size={16} />
+                    </button>
+
+                    {isArenaMode ? (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                            <select
+                                value={arenaModelA}
+                                onChange={(e) => onArenaModelAChange(e.target.value)}
+                                className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
+                            >
+                                {modelOptions.map((m) => (
+                                    <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-gray-500 font-bold">VS</span>
+                            <select
+                                value={arenaModelB}
+                                onChange={(e) => onArenaModelBChange(e.target.value)}
+                                className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
+                            >
+                                {modelOptions.map((m) => (
+                                    <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <>
+                            <Bot size={14} className="text-primary-400" />
+                            <select
+                                value={provider}
+                                onChange={(e) => onProviderChange(e.target.value)}
+                                className="bg-transparent text-sm text-white outline-none"
+                            >
+                                {providerOptions.map((p) => (
+                                    <option key={p.id} value={p.id} className="bg-gray-900 text-gray-100">
+                                        {p.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-gray-500">/</span>
+                            <select
+                                value={model}
+                                onChange={(e) => onModelChange(e.target.value)}
+                                className="bg-transparent text-sm text-white outline-none"
+                            >
+                                {modelOptions.map((m) => (
+                                    <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </>
+                    )}
                 </div>
                 <StyleSelector value={style} onChange={onStyleChange} />
-                {onSecretary && (
-                    <button
-                        onClick={onSecretary}
-                        className="flex items-center gap-1 px-3 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-all shadow-primary-900/20 shadow"
-                    >
-                        <Sparkles size={14} />
-                        <span className="hidden sm:inline">Секретар</span>
-                        <span className="sm:hidden">AI</span>
-                    </button>
-                )}
             </div>
         </div>
     );

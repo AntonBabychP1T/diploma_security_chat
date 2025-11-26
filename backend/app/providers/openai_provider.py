@@ -18,19 +18,21 @@ class OpenAIProvider(LLMProvider):
     ) -> ProviderResponse:
         options = options or {}
 
+
         model = options.get("model", self.default_model)
         
         # Model-specific constraints
         configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
-        # Hard cap to avoid long generations that hurt latency
-        default_max = min(configured_max, 2048)
+        
+        # Use configured max tokens (removed hard cap of 2048 for Arena mode support)
         if model in {"gpt-5-nano", "gpt-5-mini", "gpt-5.1"}:
             # Avoid sending unsupported temperature for these models
             temperature = None
-            max_completion_tokens = default_max
+            max_completion_tokens = configured_max
         else:
             temperature = options.get("temperature", None)
-            max_completion_tokens = default_max
+            max_completion_tokens = configured_max
+
 
         try:
             # Prepare arguments
@@ -53,8 +55,15 @@ class OpenAIProvider(LLMProvider):
             response = await self.client.chat.completions.create(**kwargs)
 
             message = response.choices[0].message
-            content = message.content
+            content = message.content or ""
             tool_calls = message.tool_calls if hasattr(message, "tool_calls") else None
+            
+            # Debug logging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"OpenAI Response - Model: {model}, Content length: {len(content)}, Finish reason: {response.choices[0].finish_reason}")
+            if not content:
+                logger.warning(f"Empty content from OpenAI! Model: {model}, Tool calls: {tool_calls}, Finish reason: {response.choices[0].finish_reason}")
             
             usage = response.usage.model_dump() if response.usage else {}
 
@@ -106,13 +115,14 @@ class OpenAIProvider(LLMProvider):
         model = options.get("model", self.default_model)
 
         configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
-        default_max = min(configured_max, 2048)
+        
         if model in {"gpt-5-nano", "gpt-5-mini", "gpt-5.1"}:
             temperature = None
-            max_completion_tokens = default_max
+            max_completion_tokens = configured_max
         else:
             temperature = options.get("temperature", None)
-            max_completion_tokens = default_max
+            max_completion_tokens = configured_max
+
 
         kwargs: Dict[str, Any] = {
             "model": model,

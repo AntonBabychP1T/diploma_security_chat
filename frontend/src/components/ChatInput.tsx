@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot } from 'lucide-react';
+import { Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot } from 'lucide-react';
 import clsx from 'clsx';
 import { transcribeAudio } from '../api/client';
 

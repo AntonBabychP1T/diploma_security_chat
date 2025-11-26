@@ -3,9 +3,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
-from app.services.google_auth_service import GoogleAuthService
-from app.models.google_account import GoogleAccount
-from app.routers.auth import get_current_user # Assuming this exists
+from app.services.microsoft_auth_service import MicrosoftAuthService
+from app.models.microsoft_account import MicrosoftAccount
+from app.routers.auth import get_current_user
 from app.models.user import User
 from app.schemas.account import AccountLabelUpdate, AccountResponse
 from datetime import datetime, timedelta
@@ -15,20 +15,22 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-router = APIRouter(prefix="/auth/google", tags=["Google Auth"])
+router = APIRouter(prefix="/auth/microsoft", tags=["Microsoft Auth"])
 
 @router.get("/login")
 async def login(request: Request, user: User = Depends(get_current_user)):
     """
-    Redirects user to Google Login.
-    State parameter encodes user_id to link account on callback.
+    Redirects user to Microsoft Login.
     """
-    # Simple state: user_id. In production, sign this to prevent CSRF/tampering.
-    state = str(user.id) 
-    redirect_uri = f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/api/auth/google/callback"
-    auth_url = GoogleAuthService.get_authorization_url(state, redirect_uri)
-    # TODO: sign state for CSRF protection in production
-    # Return JSON so frontend can fetch with auth header then redirect
+    state = str(user.id)
+    # Use configured redirect URI or construct one
+    redirect_uri = settings.MICROSOFT_REDIRECT_URI or f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/api/auth/microsoft/callback"
+    
+    try:
+        auth_url = MicrosoftAuthService.get_authorization_url(state, redirect_uri)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
     if request.query_params.get("redirect") == "true":
         return RedirectResponse(auth_url)
     return {"url": auth_url}
@@ -36,26 +38,26 @@ async def login(request: Request, user: User = Depends(get_current_user)):
 @router.get("/callback")
 async def callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
     """
-    Handles Google OAuth callback.
-    Exchanges code for tokens and saves to DB.
+    Handles Microsoft OAuth callback.
     """
     try:
         user_id = int(state)
-        # Verify user exists? (Optional, FK constraint will handle it but good for UX)
         
-        redirect_uri = f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/api/auth/google/callback"
-        token_data = await GoogleAuthService.exchange_code_for_token(code, redirect_uri)
+        redirect_uri = settings.MICROSOFT_REDIRECT_URI or f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/api/auth/microsoft/callback"
+        
+        token_data = await MicrosoftAuthService.exchange_code_for_token(code, redirect_uri)
         access_token = token_data["access_token"]
         refresh_token = token_data.get("refresh_token")
         expires_in = token_data.get("expires_in", 3600)
         
-        user_info = await GoogleAuthService.get_user_info(access_token)
-        email = user_info["email"]
+        user_info = await MicrosoftAuthService.get_user_profile(access_token)
+        email = user_info.get("mail") or user_info.get("userPrincipalName")
+        display_name = user_info.get("displayName")
         
         # Check if account already exists
-        query = select(GoogleAccount).where(
-            GoogleAccount.user_id == user_id,
-            GoogleAccount.email == email
+        query = select(MicrosoftAccount).where(
+            MicrosoftAccount.user_id == user_id,
+            MicrosoftAccount.email == email
         )
         result = await db.execute(query)
         existing_account = result.scalar_one_or_none()
@@ -65,40 +67,41 @@ async def callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
             if refresh_token:
                 existing_account.refresh_token = refresh_token
             existing_account.token_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+            existing_account.display_name = display_name
             await db.commit()
         else:
-            # Create new account
-            new_account = GoogleAccount(
+            new_account = MicrosoftAccount(
                 user_id=user_id,
                 email=email,
+                display_name=display_name,
                 access_token=access_token,
                 refresh_token=refresh_token,
                 token_expiry=datetime.utcnow() + timedelta(seconds=expires_in),
-                label="personal", # Default, user can change later
-                is_default=False
+                label="work", # Default
+                is_default=False,
+                tenant_id=settings.MICROSOFT_TENANT_ID
             )
             db.add(new_account)
             await db.commit()
 
-        # Redirect back to chat; optionally include status for UI banners
-        return RedirectResponse(f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/?google_status=connected&email={email}")
+        return RedirectResponse(f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/?microsoft_status=connected&email={email}")
             
     except Exception as e:
-        logger.error(f"Google Auth Error: {e}")
+        logger.error(f"Microsoft Auth Error: {e}")
         raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
 
 @router.delete("/accounts/{account_id}")
-async def delete_google_account(
+async def delete_microsoft_account(
     account_id: int,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Delete a Google account.
+    Delete a Microsoft account.
     """
     result = await db.execute(
-        select(GoogleAccount)
-        .where(GoogleAccount.id == account_id, GoogleAccount.user_id == user.id)
+        select(MicrosoftAccount)
+        .where(MicrosoftAccount.id == account_id, MicrosoftAccount.user_id == user.id)
     )
     account = result.scalar_one_or_none()
     
@@ -108,22 +111,22 @@ async def delete_google_account(
     await db.delete(account)
     await db.commit()
     
-    logger.info(f"User {user.id} deleted Google account {account_id}")
+    logger.info(f"User {user.id} deleted Microsoft account {account_id}")
     return {"status": "ok", "message": "Account deleted successfully"}
 
 @router.patch("/accounts/{account_id}", response_model=AccountResponse)
-async def update_google_account_label(
+async def update_microsoft_account_label(
     account_id: int,
     update_data: AccountLabelUpdate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Update Google account label.
+    Update Microsoft account label.
     """
     result = await db.execute(
-        select(GoogleAccount)
-        .where(GoogleAccount.id == account_id, GoogleAccount.user_id == user.id)
+        select(MicrosoftAccount)
+        .where(MicrosoftAccount.id == account_id, MicrosoftAccount.user_id == user.id)
     )
     account = result.scalar_one_or_none()
     
@@ -134,5 +137,5 @@ async def update_google_account_label(
     await db.commit()
     await db.refresh(account)
     
-    logger.info(f"User {user.id} updated Google account {account_id} label to {update_data.label}")
+    logger.info(f"User {user.id} updated Microsoft account {account_id} label to {update_data.label}")
     return AccountResponse.model_validate(account)

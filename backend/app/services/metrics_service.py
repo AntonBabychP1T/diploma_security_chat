@@ -62,6 +62,7 @@ class MetricsService:
 
         latencies = []
         masked_count = 0
+        model_usage = {}
 
         for meta in meta_list:
             if not meta:
@@ -71,6 +72,10 @@ class MetricsService:
                 latencies.append(latency)
             if meta.get("masked_used"):
                 masked_count += 1
+            
+            # Track model usage
+            model = meta.get("model", "unknown")
+            model_usage[model] = model_usage.get(model, 0) + 1
 
         avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
 
@@ -78,5 +83,52 @@ class MetricsService:
             "total_messages": total_messages or 0,
             "recent_avg_latency": avg_latency,
             "recent_masked_count": masked_count,
-            "sample_size": len(meta_list)
+            "sample_size": len(meta_list),
+            "model_usage": model_usage
         }
+
+    async def get_model_leaderboard(self):
+        """Aggregate votes from message metadata to show model performance."""
+        # Fetch all messages with 'vote' in metadata
+        # In a real DB we'd use JSON operators. Here we fetch assistant messages and filter in python.
+        result = await self.db.execute(
+            select(Message.meta_data).where(Message.role == "assistant")
+        )
+        meta_list = result.scalars().all()
+        
+        leaderboard = {}
+        
+        for meta in meta_list:
+            if not meta: continue
+            
+            model = meta.get("model", "unknown")
+            vote = meta.get("vote")
+            
+            if model not in leaderboard:
+                leaderboard[model] = {"votes": 0, "wins": 0, "losses": 0, "ties": 0}
+                
+            if vote:
+                leaderboard[model]["votes"] += 1
+                if vote == "better":
+                    leaderboard[model]["wins"] += 1
+                elif vote == "worse":
+                    leaderboard[model]["losses"] += 1
+                elif vote == "tie":
+                    leaderboard[model]["ties"] += 1
+                    
+        # Calculate win rate
+        stats = []
+        for model, data in leaderboard.items():
+            total_votes = data["votes"]
+            if total_votes > 0:
+                win_rate = (data["wins"] / total_votes) * 100
+                stats.append({
+                    "model": model,
+                    "win_rate": round(win_rate, 1),
+                    "votes": total_votes,
+                    "wins": data["wins"]
+                })
+                
+        # Sort by win rate desc
+        stats.sort(key=lambda x: x["win_rate"], reverse=True)
+        return stats

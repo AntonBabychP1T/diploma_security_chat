@@ -17,3 +17,8 @@ async def get_recent_metrics(db: AsyncSession = Depends(get_db), current_user: U
 async def get_global_metrics(db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin_user)):
     service = MetricsService(db)
     return await service.get_global_stats()
+
+@router.get("/leaderboard")
+async def get_leaderboard(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    service = MetricsService(db)
+    return await service.get_model_leaderboard()

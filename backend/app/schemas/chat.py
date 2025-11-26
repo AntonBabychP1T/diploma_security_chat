@@ -42,3 +42,4 @@ class ChatRequest(BaseModel):
     style: Optional[str] = "default"
     provider: Optional[str] = "openai"
     model: Optional[str] = None
+    models: Optional[List[str]] = None
