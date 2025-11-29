@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     MEMORY_EXTRACT_MAX_TOKENS: int = 10000
     MEMORY_INJECT_MAX_TOKENS: int = 10000
     AUDIO_TRANSCRIBE_MODEL: str = "gpt-4o-mini-transcribe"
-    FRONTEND_PUBLIC_URL: str = "http://localhost:5173"
+    FRONTEND_PUBLIC_URL: str = "https://tender-terrapin-bold.ngrok-free.app"
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str | None = None

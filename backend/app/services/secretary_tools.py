@@ -121,6 +121,160 @@ class SecretaryTools:
             logger.error(f"Error creating event: {e}")
             return f"Error creating event: {str(e)}"
 
+    async def get_email(self, account_label: str, message_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            email = await client.get_email(message_id)
+            if not email:
+                return "Email not found."
+            return f"From: {email.sender}\nSubject: {email.subject}\nDate: {email.date}\n\n{email.snippet}"
+        except Exception as e:
+            logger.error(f"Error getting email: {e}")
+            return f"Error getting email: {str(e)}"
+
+    async def reply_email(self, account_label: str, message_id: str, body: str, reply_all: bool = False) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.reply_email(message_id, body, reply_all)
+            return "Reply sent successfully."
+        except Exception as e:
+            logger.error(f"Error replying to email: {e}")
+            return f"Error replying to email: {str(e)}"
+
+    async def forward_email(self, account_label: str, message_id: str, to: List[str], body: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.forward_email(message_id, to, body)
+            return f"Email forwarded to {', '.join(to)}."
+        except Exception as e:
+            logger.error(f"Error forwarding email: {e}")
+            return f"Error forwarding email: {str(e)}"
+
+    async def delete_emails(self, account_label: str, message_ids: List[str], hard_delete: bool = False) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            result = await client.delete_emails(message_ids, hard_delete)
+            return f"Deleted {result.get('count', len(message_ids))} emails."
+        except Exception as e:
+            logger.error(f"Error deleting emails: {e}")
+            return f"Error deleting emails: {str(e)}"
+
+    async def mark_email_as_read(self, account_label: str, message_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.modify_email_labels(message_id, remove_labels=["UNREAD"])
+            return f"Marked email as read."
+        except Exception as e:
+            logger.error(f"Error marking email as read: {e}")
+            return f"Error marking email as read: {str(e)}"
+
+    async def mark_email_as_unread(self, account_label: str, message_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.modify_email_labels(message_id, add_labels=["UNREAD"])
+            return f"Marked email as unread."
+        except Exception as e:
+            logger.error(f"Error marking email as unread: {e}")
+            return f"Error marking email as unread: {str(e)}"
+
+    async def star_email(self, account_label: str, message_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.modify_email_labels(message_id, add_labels=["STARRED"])
+            return f"Starred email."
+        except Exception as e:
+            logger.error(f"Error starring email: {e}")
+            return f"Error starring email: {str(e)}"
+
+    async def unstar_email(self, account_label: str, message_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.modify_email_labels(message_id, remove_labels=["STARRED"])
+            return f"Unstarred email."
+        except Exception as e:
+            logger.error(f"Error unstarring email: {e}")
+            return f"Error unstarring email: {str(e)}"
+
+    async def get_event(self, account_label: str, event_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            event = await client.get_event(event_id)
+            if not event:
+                return "Event not found."
+            return f"Event: {event.summary}\nTime: {event.start} - {event.end}\nLocation: {event.location}\nDescription: {event.description}\nAttendees: {', '.join(event.attendees)}"
+        except Exception as e:
+            logger.error(f"Error getting event: {e}")
+            return f"Error getting event: {str(e)}"
+
+    async def update_event(self, account_label: str, event_id: str, **kwargs) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.update_event(event_id, **kwargs)
+            return "Event updated successfully."
+        except Exception as e:
+            logger.error(f"Error updating event: {e}")
+            return f"Error updating event: {str(e)}"
+
+    async def delete_event(self, account_label: str, event_id: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.delete_event(event_id, True)
+            return "Event deleted successfully."
+        except Exception as e:
+            logger.error(f"Error deleting event: {e}")
+            return f"Error deleting event: {str(e)}"
+
+    async def respond_to_invitation(self, account_label: str, event_id: str, response: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            await client.respond_to_invitation(event_id, response, None)
+            return f"Responded '{response}' to event."
+        except Exception as e:
+            logger.error(f"Error responding to invitation: {e}")
+            return f"Error responding to invitation: {str(e)}"
+
+    async def get_next_event(self, account_label: str) -> str:
+        client = await self._get_client(account_label)
+        if not client:
+            return f"Error: Could not access account with label '{account_label}'."
+        try:
+            now = datetime.utcnow()
+            end = now + timedelta(days=7) # Look ahead 1 week
+            events = await client.list_events(now, end)
+            if not events:
+                return "No upcoming events found in the next 7 days."
+            
+            # Events are sorted by start time usually
+            next_event = events[0]
+            return f"Next event: {next_event.summary} at {next_event.start.strftime('%Y-%m-%d %H:%M')}"
+        except Exception as e:
+            logger.error(f"Error getting next event: {e}")
+            return f"Error getting next event: {str(e)}"
+
     async def _get_client(self, label: str) -> Optional[Any]: # Returns MailCalendarProvider
         # 1. Try Google Accounts
         query = select(GoogleAccount).where(GoogleAccount.user_id == self.user_id)

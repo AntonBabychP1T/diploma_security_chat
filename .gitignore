@@ -26,3 +26,6 @@ frontend/dist/
 # ===== IDE/EDITOR =====
 .vscode/
 .idea/
+backend/chat.db-shm
+backend/chat.db-wal
+frontend/.env.example

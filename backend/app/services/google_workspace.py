@@ -31,7 +31,7 @@ class GoogleWorkspaceClient:
             if filters.subject_keyword:
                 query_parts.append(f"subject:{filters.subject_keyword}")
             if filters.max_results:
-                max_results = filters.max_results
+                max_results = min(filters.max_results, 20)  # Cap at 20 to prevent excessive API calls
 
         q = " ".join(query_parts)
         
@@ -44,20 +44,23 @@ class GoogleWorkspaceClient:
             data = response.json()
             messages_meta = data.get("messages", [])
             
-            results = []
-            # 2. Batch get details (in parallel ideally, but sequential for simplicity first)
-            # Optimization: Use batch request or parallel gather
-            # For now, simple loop
-            for meta in messages_meta:
-                msg_id = meta["id"]
-                detail_resp = await client.get(f"{self.GMAIL_API_URL}/messages/{msg_id}", headers=self.headers)
-                if detail_resp.status_code == 200:
-                    msg_data = detail_resp.json()
-                    parsed = self._parse_email(msg_data)
-                    if parsed:
-                        results.append(parsed)
+            # 2. Fetch details in parallel
+            import asyncio
             
-            return results
+            async def fetch_email(msg_id: str) -> Optional[EmailMessage]:
+                try:
+                    detail_resp = await client.get(f"{self.GMAIL_API_URL}/messages/{msg_id}", headers=self.headers)
+                    if detail_resp.status_code == 200:
+                        msg_data = detail_resp.json()
+                        return self._parse_email(msg_data)
+                except Exception as e:
+                    logger.error(f"Error fetching email {msg_id}: {e}")
+                return None
+            
+            tasks = [fetch_email(meta["id"]) for meta in messages_meta]
+            results = await asyncio.gather(*tasks)
+            
+            return [r for r in results if r is not None]
 
     def _parse_email(self, data: Dict[str, Any]) -> Optional[EmailMessage]:
         try:
@@ -189,6 +192,18 @@ class GoogleWorkspaceClient:
 
 
 
+    async def get_email(self, message_id: str) -> Optional[EmailMessage]:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.GMAIL_API_URL}/messages/{message_id}", headers=self.headers)
+                if response.status_code == 404:
+                    return None
+                response.raise_for_status()
+                return self._parse_email(response.json())
+        except Exception as e:
+            logger.error(f"Error getting email {message_id}: {e}")
+            return None
+
     async def send_email(self, to: List[str], subject: str, body: str) -> Dict[str, Any]:
         message = MIMEText(body)
         message['to'] = ", ".join(to)
@@ -201,6 +216,110 @@ class GoogleWorkspaceClient:
             response = await client.post(f"{self.GMAIL_API_URL}/messages/send", headers=self.headers, json=payload)
             response.raise_for_status()
             return response.json()
+
+    async def reply_email(self, message_id: str, body: str, reply_all: bool = False) -> Dict[str, Any]:
+        # 1. Get original message to find threadId and headers
+        original = await self.get_email(message_id)
+        if not original:
+            raise ValueError(f"Email {message_id} not found")
+
+        # We need raw headers for In-Reply-To and References, which _parse_email might not give fully.
+        # So let's fetch raw or just use threadId which is often enough for Gmail to group, 
+        # but for proper threading standards we need headers.
+        # For simplicity in this iteration, we rely on Gmail's threadId grouping 
+        # but we MUST send In-Reply-To to be a proper reply.
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{self.GMAIL_API_URL}/messages/{message_id}?format=metadata", headers=self.headers)
+            resp.raise_for_status()
+            meta = resp.json()
+            headers = meta.get("payload", {}).get("headers", [])
+            
+            msg_id_header = next((h["value"] for h in headers if h["name"].lower() == "message-id"), None)
+            references = next((h["value"] for h in headers if h["name"].lower() == "references"), "")
+            subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "")
+            
+            if not subject.lower().startswith("re:"):
+                subject = f"Re: {subject}"
+
+            # Construct reply
+            message = MIMEText(body)
+            message['subject'] = subject
+            
+            # To/Cc logic would go here for reply_all, for now simple reply to sender
+            # In a real app we'd parse 'Reply-To' or 'From'
+            # For now, let's assume the user provides the recipient or we extract it? 
+            # The interface in secretary_tools.py might need to handle 'to', 
+            # but usually 'reply' implies replying to sender.
+            # Let's extract 'From' from original
+            sender = next((h["value"] for h in headers if h["name"].lower() == "from"), "")
+            message['to'] = sender
+            
+            if msg_id_header:
+                message['In-Reply-To'] = msg_id_header
+                message['References'] = f"{references} {msg_id_header}".strip()
+
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            
+            payload = {
+                'raw': raw,
+                'threadId': original.thread_id
+            }
+            
+            response = await client.post(f"{self.GMAIL_API_URL}/messages/send", headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+
+    async def forward_email(self, message_id: str, to: List[str], body: str) -> Dict[str, Any]:
+        original = await self.get_email(message_id)
+        if not original:
+            raise ValueError(f"Email {message_id} not found")
+            
+        message = MIMEText(body)
+        message['to'] = ", ".join(to)
+        message['subject'] = f"Fwd: {original.subject}"
+        
+        # In a real forward, we'd attach the original content or MIME parts.
+        # For now, we just send a new email with Fwd subject and body.
+        # Ideally we append original snippet.
+        message.set_payload(f"{body}\n\n---------- Forwarded message ---------\nFrom: {original.sender}\nDate: {original.date}\nSubject: {original.subject}\n\n{original.snippet}...")
+        
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        payload = {'raw': raw}
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.GMAIL_API_URL}/messages/send", headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_emails(self, message_ids: List[str]) -> Dict[str, Any]:
+        # Batch delete (trash)
+        payload = {
+            "ids": message_ids
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.GMAIL_API_URL}/messages/batchDelete", headers=self.headers, json=payload)
+            response.raise_for_status()
+            return {"status": "deleted", "count": len(message_ids)}
+
+    async def modify_email_labels(self, message_id: str, add_labels: Optional[List[str]] = None, remove_labels: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Modify labels on an email.
+        Common labels: UNREAD, STARRED, IMPORTANT
+        """
+        payload = {
+            "addLabelIds": add_labels or [],
+            "removeLabelIds": remove_labels or []
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.GMAIL_API_URL}/messages/{message_id}/modify",
+                headers=self.headers,
+                json=payload
+            )
+            response.raise_for_status()
+            return {"status": "modified", "message_id": message_id}
 
     async def create_event(self, summary: str, start_time: datetime, end_time: datetime, attendees: List[str]) -> Dict[str, Any]:
         event = {
@@ -232,3 +351,99 @@ class GoogleWorkspaceClient:
         except Exception as e:
             logger.error(f"Unexpected error creating event: {str(e)}")
             raise
+
+    async def get_event(self, event_id: str) -> Optional[CalendarEvent]:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.CALENDAR_API_URL}/calendars/primary/events/{event_id}", headers=self.headers)
+                if response.status_code == 404:
+                    return None
+                response.raise_for_status()
+                item = response.json()
+                
+                start = item.get("start", {})
+                end = item.get("end", {})
+                start_dt = self._parse_calendar_date(start)
+                end_dt = self._parse_calendar_date(end)
+                
+                if not start_dt or not end_dt:
+                    return None
+
+                attendees = [a.get("email") for a in item.get("attendees", []) if a.get("email")]
+
+                return CalendarEvent(
+                    id=item["id"],
+                    summary=item.get("summary", "(No Title)"),
+                    start=start_dt,
+                    end=end_dt,
+                    location=item.get("location"),
+                    description=item.get("description"),
+                    html_link=item.get("htmlLink"),
+                    attendees=attendees
+                )
+        except Exception as e:
+            logger.error(f"Error getting event {event_id}: {e}")
+            return None
+
+    async def update_event(self, event_id: str, **kwargs) -> Dict[str, Any]:
+        patch_body = {}
+        if "summary" in kwargs:
+            patch_body["summary"] = kwargs["summary"]
+        if "description" in kwargs:
+            patch_body["description"] = kwargs["description"]
+        if "location" in kwargs:
+            patch_body["location"] = kwargs["location"]
+        if "start_time" in kwargs:
+            patch_body["start"] = {"dateTime": kwargs["start_time"].isoformat(), "timeZone": "UTC"}
+        if "end_time" in kwargs:
+            patch_body["end"] = {"dateTime": kwargs["end_time"].isoformat(), "timeZone": "UTC"}
+        if "attendees" in kwargs:
+            patch_body["attendees"] = [{"email": email} for email in kwargs["attendees"]]
+
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                f"{self.CALENDAR_API_URL}/calendars/primary/events/{event_id}",
+                headers=self.headers,
+                json=patch_body
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_event(self, event_id: str, send_updates: bool = False) -> Dict[str, Any]:
+        params = {}
+        if send_updates:
+            params["sendUpdates"] = "all"
+            
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(f"{self.CALENDAR_API_URL}/calendars/primary/events/{event_id}", headers=self.headers, params=params)
+            if response.status_code == 204:
+                return {"status": "deleted"}
+            response.raise_for_status()
+            return {"status": "deleted"}
+
+    async def respond_to_invitation(self, event_id: str, response_status: str, comment: Optional[str] = None) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            # Get event
+            get_resp = await client.get(f"{self.CALENDAR_API_URL}/calendars/primary/events/{event_id}", headers=self.headers)
+            get_resp.raise_for_status()
+            event = get_resp.json()
+            
+            attendees = event.get("attendees", [])
+            me = next((a for a in attendees if a.get("self")), None)
+            
+            if not me:
+                return {"status": "error", "message": "You are not an attendee of this event or cannot respond."}
+            
+            me["responseStatus"] = response_status
+            if comment:
+                me["comment"] = comment
+            
+            # Patch back
+            patch_resp = await client.patch(
+                f"{self.CALENDAR_API_URL}/calendars/primary/events/{event_id}",
+                headers=self.headers,
+                json={"attendees": attendees}
+            )
+            patch_resp.raise_for_status()
+            return {"status": f"responded {response_status}"}
+
