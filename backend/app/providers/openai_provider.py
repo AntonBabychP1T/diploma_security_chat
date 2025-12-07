@@ -11,6 +11,32 @@ class OpenAIProvider(LLMProvider):
         # Сучасна модель
         self.default_model = "gpt-5-nano"
 
+    def _convert_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        cleaned_messages = []
+        for m in messages:
+            msg = m.copy()
+            content = msg.get("content")
+            if isinstance(content, list):
+                new_content = []
+                for item in content:
+                    if item.get("type") == "image_url":
+                        # OpenAI strict format: only type and image_url allowed
+                        new_item = {
+                            "type": "image_url",
+                            "image_url": item.get("image_url")
+                        }
+                        if not new_item["image_url"]: # Skip invalid
+                            continue
+                        new_content.append(new_item)
+                    elif item.get("type") == "text":
+                         new_content.append({
+                             "type": "text",
+                             "text": item.get("text", "")
+                         })
+                msg["content"] = new_content
+            cleaned_messages.append(msg)
+        return cleaned_messages
+
     async def generate(
         self,
         messages: List[Dict[str, str]],
@@ -38,7 +64,7 @@ class OpenAIProvider(LLMProvider):
             # Prepare arguments
             kwargs = {
                 "model": model,
-                "messages": messages,
+                "messages": self._convert_messages(messages),
                 "max_completion_tokens": max_completion_tokens
             }
             if "response_format" in options:
@@ -126,7 +152,7 @@ class OpenAIProvider(LLMProvider):
 
         kwargs: Dict[str, Any] = {
             "model": model,
-            "messages": messages,
+            "messages": self._convert_messages(messages),
             "max_completion_tokens": max_completion_tokens,
             "stream": True
         }

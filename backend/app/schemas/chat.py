@@ -37,9 +37,15 @@ class Chat(ChatBase):
     class Config:
         from_attributes = True
 
+class Attachment(BaseModel):
+    name: str
+    type: str
+    content: str # base64
+
 class ChatRequest(BaseModel):
     message: str
     style: Optional[str] = "default"
     provider: Optional[str] = "openai"
     model: Optional[str] = None
     models: Optional[List[str]] = None
+    attachments: Optional[List[Attachment]] = None

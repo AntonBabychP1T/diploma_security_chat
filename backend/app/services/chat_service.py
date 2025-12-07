@@ -6,7 +6,8 @@ import time
 import json
 from app.models.chat import Chat, Message
 from app.models.memory import Memory
-from app.schemas.chat import ChatCreate, MessageCreate
+from app.schemas.chat import ChatCreate, MessageCreate, Attachment
+from app.utils.pdf_utils import extract_text_from_base64_pdf
 from app.services.pii_service import PIIService
 from app.providers import ProviderFactory
 from app.services.memory_service import MemoryService
@@ -95,7 +96,7 @@ class ChatService:
         )
         return result.scalars().all()
 
-    async def send_message(self, chat_id: int, content: str, style: str = "default", provider_name: str = "openai", model: str | None = None) -> Message:
+    async def send_message(self, chat_id: int, content: str, style: str = "default", provider_name: str = "openai", model: str | None = None, attachments: List[Attachment] | None = None) -> Message:
         # Verify ownership
         chat = await self.get_chat(chat_id)
         if not chat:
@@ -111,7 +112,12 @@ class ChatService:
                 logger.error(f"Memory context build error: {e}")
         
         # 1. Save User Message (Original)
-        user_message = Message(chat_id=chat_id, role="user", content=content)
+        meta_data = {}
+        if attachments:
+            # Store metadata about attachments, but not the content (to save DB space)
+            meta_data["attachments"] = [{"name": a.name, "type": a.type} for a in attachments]
+            
+        user_message = Message(chat_id=chat_id, role="user", content=content, meta_data=meta_data)
         self.db.add(user_message)
         await self.db.commit() # Commit to get ID and save state
         
@@ -131,9 +137,33 @@ class ChatService:
             system_prompt = f"{system_prompt}\n\nHere is context about the user:\n{formatted}"
         masked_messages.append({"role": "system", "content": system_prompt})
 
-        for msg in context_messages:
+        for i, msg in enumerate(context_messages):
             masked_content, mapping = self.pii_service.mask(msg.content)
-            masked_messages.append({"role": msg.role, "content": masked_content})
+            
+            # If this is the last message (current user message) and we have attachments
+            if i == len(context_messages) - 1 and attachments and msg.role == "user":
+                 # Construct multimodal content
+                 parts = [{"type": "text", "text": masked_content}]
+                 for att in attachments:
+                     if att.type == "application/pdf" or att.name.lower().endswith(".pdf"):
+                         extracted_text = extract_text_from_base64_pdf(att.content)
+                         parts.append({
+                             "type": "text", 
+                             "text": f"--- Document Content: {att.name} ---\n{extracted_text}\n--- End Document ---"
+                         })
+                     else:
+                         # For now, pass base64 directly in a generic format
+                         # The provider adapter will convert to specific format (OpenAI image_url, Gemini blob)
+                         parts.append({
+                             "type": "image_url" if att.type.startswith("image") else "text", 
+                             "image_url": {"url": att.content} if att.type.startswith("image") else None,
+                             "text": att.content if not att.type.startswith("image") else None,
+                             "mime_type": att.type # Helper for provider
+                         })
+                 masked_messages.append({"role": msg.role, "content": parts})
+            else:
+                masked_messages.append({"role": msg.role, "content": masked_content})
+                
             combined_mapping.update(mapping) # Merge mappings
             
         # 4. Call LLM
@@ -188,8 +218,10 @@ class ChatService:
         style: str = "default",
         provider_name: str = "openai",
         model: str | None = None,
+
         fastapi_request: Request | None = None,
-        background_tasks: BackgroundTasks | None = None
+        background_tasks: BackgroundTasks | None = None,
+        attachments: List[Attachment] | None = None
     ) -> AsyncGenerator[str, None]:
         # Verify ownership
         chat = await self.get_chat(chat_id)
@@ -206,7 +238,11 @@ class ChatService:
                 logger.error(f"Memory context build error: {e}")
 
         # Save user message first
-        user_message = Message(chat_id=chat_id, role="user", content=content)
+        meta_data = {}
+        if attachments:
+            meta_data["attachments"] = [{"name": a.name, "type": a.type} for a in attachments]
+            
+        user_message = Message(chat_id=chat_id, role="user", content=content, meta_data=meta_data)
         self.db.add(user_message)
         await self.db.commit()
 
@@ -222,9 +258,29 @@ class ChatService:
             system_prompt = f"{system_prompt}\n\nHere is context about the user:\n{formatted}"
         masked_messages.append({"role": "system", "content": system_prompt})
 
-        for msg in context_messages:
+        for i, msg in enumerate(context_messages):
             masked_content, mapping = self.pii_service.mask(msg.content)
-            masked_messages.append({"role": msg.role, "content": masked_content})
+            
+            if i == len(context_messages) - 1 and attachments and msg.role == "user":
+                parts = [{"type": "text", "text": masked_content}]
+                for att in attachments:
+                     if att.type == "application/pdf" or att.name.lower().endswith(".pdf"):
+                         extracted_text = extract_text_from_base64_pdf(att.content)
+                         parts.append({
+                             "type": "text", 
+                             "text": f"--- Document Content: {att.name} ---\n{extracted_text}\n--- End Document ---"
+                         })
+                     else:
+                         parts.append({
+                             "type": "image_url" if att.type.startswith("image") else "text", 
+                             "image_url": {"url": att.content} if att.type.startswith("image") else None,
+                             "text": att.content if not att.type.startswith("image") else None,
+                             "mime_type": att.type
+                         })
+                masked_messages.append({"role": msg.role, "content": parts})
+            else:
+                masked_messages.append({"role": msg.role, "content": masked_content})
+                
             combined_mapping.update(mapping)
 
         provider = ProviderFactory.get_provider(provider_name)

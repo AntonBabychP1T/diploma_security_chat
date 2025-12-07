@@ -1,10 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot } from 'lucide-react';
+import { Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot, X, FileText, Image as ImageIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { transcribeAudio } from '../api/client';
 
+export interface Attachment {
+    name: string;
+    type: string;
+    content: string; // base64
+}
+
 interface Props {
-    onSend: (text: string) => void;
+    onSend: (text: string, attachments?: Attachment[]) => void;
     disabled?: boolean;
     isSending?: boolean;
     onStop?: () => void;
@@ -14,7 +20,9 @@ interface Props {
 
 export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop, secretaryMode, onSecretaryModeChange }) => {
     const [text, setText] = useState("");
+    const [files, setFiles] = useState<Attachment[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [recording, setRecording] = useState(false);
     const [transcribing, setTranscribing] = useState(false);
     const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
@@ -25,9 +33,10 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (text.trim() && !disabled) {
-            onSend(text);
+        if ((text.trim() || files.length > 0) && !disabled) {
+            onSend(text, files);
             setText("");
+            setFiles([]);
             if (textareaRef.current) {
                 textareaRef.current.style.height = 'auto';
             }
@@ -39,6 +48,46 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
             e.preventDefault();
             handleSubmit();
         }
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const newFiles: Attachment[] = [];
+            for (let i = 0; i < e.target.files.length; i++) {
+                const file = e.target.files[i];
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    alert(`File ${file.name} is too large (max 5MB)`);
+                    continue;
+                }
+
+                try {
+                    const base64 = await convertToBase64(file);
+                    newFiles.push({
+                        name: file.name,
+                        type: file.type,
+                        content: base64 as string
+                    });
+                } catch (err) {
+                    console.error("Error reading file", err);
+                }
+            }
+            setFiles(prev => [...prev, ...newFiles]);
+            // Reset input so same file can be selected again if needed
+            e.target.value = '';
+        }
+    };
+
+    const convertToBase64 = (file: File) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    const removeFile = (index: number) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
     };
 
     // Auto-grow textarea
@@ -154,14 +203,44 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
     return (
         <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 pb-4 sm:pb-6 pt-2">
+            {files.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2 px-1">
+                    {files.map((file, i) => (
+                        <div key={i} className="relative group bg-gray-800 border border-gray-700 rounded-lg p-2 pr-8 flex items-center gap-2">
+                            {file.type.startsWith('image/') ? (
+                                <ImageIcon size={16} className="text-blue-400" />
+                            ) : (
+                                <FileText size={16} className="text-gray-400" />
+                            )}
+                            <span className="text-xs text-gray-200 truncate max-w-[150px]">{file.name}</span>
+                            <button
+                                onClick={() => removeFile(i)}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-white/5"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className={clsx(
                 "relative flex items-end gap-2 bg-gray-800/80 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-2 shadow-2xl shadow-black/20 transition-all duration-200",
                 "focus-within:border-primary-500/30 focus-within:ring-1 focus-within:ring-primary-500/20"
             )}>
-                {/* Attachment Button (Mock) */}
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    multiple
+                />
+
+                {/* Attachment Button */}
                 <button
                     className="p-3 text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-full transition-colors mb-0.5"
                     title="Add attachment"
+                    onClick={() => fileInputRef.current?.click()}
                 >
                     <Paperclip size={20} />
                 </button>
@@ -231,10 +310,10 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                 ) : (
                     <button
                         onClick={() => handleSubmit()}
-                        disabled={!text.trim() || disabled}
+                        disabled={(!text.trim() && files.length === 0) || disabled}
                         className={clsx(
                             "p-3 rounded-full mb-0.5 transition-all duration-200 flex items-center justify-center",
-                            text.trim() && !disabled
+                            (text.trim() || files.length > 0) && !disabled
                                 ? "bg-primary-600 text-white hover:bg-primary-500 shadow-lg shadow-primary-900/20 scale-100"
                                 : "bg-gray-700 text-gray-500 cursor-not-allowed"
                         )}
@@ -252,3 +331,4 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
         </div>
     );
 };
+
