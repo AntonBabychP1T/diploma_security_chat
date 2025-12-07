@@ -72,7 +72,8 @@ async def send_message(chat_id: int, request: ChatRequest, background_tasks: Bac
                 content=request.message,
                 style=request.style or "default",
                 provider_name=request.provider or "openai",
-                model=request.model
+                model=request.model,
+                attachments=request.attachments
             )
 
             # Schedule memory extraction in background to keep latency low
@@ -109,7 +110,8 @@ async def send_message_stream(
             provider_name=request.provider or "openai",
             model=request.model,
             fastapi_request=fastapi_request,
-            background_tasks=background_tasks
+            background_tasks=background_tasks,
+            attachments=request.attachments
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="Chat not found")

@@ -2,7 +2,6 @@
 .env
 
 backend/.env
-backend/.env.*
 
 # ===== DATABASE FILES =====
 backend/chat.db

@@ -150,10 +150,13 @@ export const ChatPage: React.FC = () => {
         setOptimisticAssistantId(null);
     };
 
-    const handleSend = async (text: string) => {
+    const handleSend = async (text: string, attachments: { name: string, type: string, content: string }[] = []) => {
         if (!activeChat || sending) return;
 
         const trimmed = text.trim();
+        // If only attachments, allow sending
+        if (!trimmed && attachments.length === 0) return;
+
         const secretaryCommand = secretaryMode || /^\/(sec|secretary|секретар)/i.test(trimmed);
         const secretaryQuery = secretaryCommand && !secretaryMode ? trimmed.replace(/^\/(sec|secretary|секретар)\s*/i, '') || trimmed : trimmed;
 
@@ -162,7 +165,7 @@ export const ChatPage: React.FC = () => {
             id: Date.now(),
             chat_id: activeChat.id,
             role: 'user',
-            content: text,
+            content: text + (attachments.length > 0 ? `\n[Attached: ${attachments.map(a => a.name).join(', ')}]` : ''),
             created_at: new Date().toISOString()
         };
 
@@ -214,7 +217,8 @@ export const ChatPage: React.FC = () => {
                 const res = await api.post<Message | Message[]>(`/chats/${activeChat.id}/messages`, {
                     message: text,
                     style: style,
-                    models: [arenaModelA, arenaModelB]
+                    models: [arenaModelA, arenaModelB],
+                    attachments: attachments // Pass attachments
                 });
 
                 // Arena mode returns an array of messages
@@ -275,7 +279,8 @@ export const ChatPage: React.FC = () => {
                     message: text,
                     style: style,
                     provider: provider,
-                    model: model
+                    model: model,
+                    attachments: attachments // Pass attachments
                 }),
                 signal: controller.signal
             });

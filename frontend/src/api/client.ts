@@ -88,12 +88,19 @@ export interface ChatCreate {
     title: string;
 }
 
+export interface Attachment {
+    name: string;
+    type: string;
+    content: string; // base64
+}
+
 export interface ChatRequest {
     message: string;
     style?: string;
     provider?: string;
     model?: string;
     models?: string[];
+    attachments?: Attachment[];
 }
 
 export interface Metrics {
