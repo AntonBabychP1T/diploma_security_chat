@@ -36,6 +36,27 @@ class ChatService:
         self.memory_service = MemoryService(db, user_id) if user_id else None
         self.settings = get_settings()
 
+    def _generate_title(self, user_content: str, assistant_content: str) -> str:
+        """
+        Simple local heuristic to generate a chat title.
+        Takes the first few words of the user's message.
+        """
+        # Clean and truncate
+        clean_content = user_content.split('\n')[0].strip() # Take first line
+        words = clean_content.split()
+        
+        # Take first 5-7 words
+        title = " ".join(words[:6])
+        
+        # Remove special chars from end
+        if title and title[-1] in ".,:;!?":
+            title = title[:-1]
+            
+        if len(title) > 40:
+            title = title[:37] + "..."
+            
+        return title or "New Chat"
+
     async def create_chat(self, chat_data: ChatCreate) -> Chat:
         logger.info(f"Creating chat with title: {chat_data.title} for user_id: {self.user_id}")
         new_chat = Chat(title=chat_data.title, user_id=self.user_id)
@@ -209,6 +230,17 @@ class ChatService:
 
         logger.info(f"Chat {chat_id}: Processed message. Latency: {latency:.2f}s. Masked: {meta_data['masked_used']}")
         
+        # Auto-rename if "New Chat" and early in conversation
+        if chat.title == "New Chat":
+            # We just added 2 messages (user + assistant)
+            # If total messages <= 2 (or slightly more if there were errors), rename
+            # But simpler check: just check if title is "New Chat"
+             new_title = self._generate_title(content, unmasked_content)
+             if new_title != "New Chat":
+                 chat.title = new_title
+                 self.db.add(chat)
+                 await self.db.commit()
+                 
         return assistant_message
 
     async def send_message_stream(
@@ -339,6 +371,14 @@ class ChatService:
                 self.db.add(assistant_message)
                 await self.db.commit()
                 await self.db.refresh(assistant_message)
+
+                # Auto-rename
+                if chat.title == "New Chat":
+                     new_title = self._generate_title(content, unmasked_full)
+                     if new_title != "New Chat":
+                         chat.title = new_title
+                         self.db.add(chat)
+                         await self.db.commit()
 
                 # Run memory update in background
                 if self.memory_service:

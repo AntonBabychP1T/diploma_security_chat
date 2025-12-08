@@ -6,6 +6,10 @@ from app import models  # ensure models are registered with SQLAlchemy
 from app.routers import chats, metrics, auth, google_auth, secretary
 from app.routers import memories
 from app.routers import audio
+from sqlalchemy import select
+from app.core.database import SessionLocal
+from app.models.invite import Invite
+from app.utils.invite_manager import generate_code
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +54,30 @@ async def log_requests(request, call_next):
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Check for invite codes
+    async with SessionLocal() as db:
+        try:
+            # Check if any invites exist
+            result = await db.execute(select(Invite))
+            invites = result.scalars().all()
+            
+            # Check if all used or empty
+            all_used = all(invite.is_used for invite in invites)
+            
+            if not invites or all_used:
+                logger.info("No active invite codes found. Generating 5 new codes...")
+                new_codes = []
+                for _ in range(5):
+                    code = generate_code()
+                    invite = Invite(code=code)
+                    db.add(invite)
+                    new_codes.append(code)
+                
+                await db.commit()
+                logger.info(f"Generated 5 new invite codes: {', '.join(new_codes)}")
+        except Exception as e:
+            logger.error(f"Error checking/generating invite codes: {e}")
 
 app.include_router(auth.router)
 app.include_router(google_auth.router)
