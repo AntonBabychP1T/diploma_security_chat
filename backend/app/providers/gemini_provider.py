@@ -1,6 +1,9 @@
 import asyncio
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 from app.core.config import get_settings
 from .base import LLMProvider, ProviderResponse
@@ -9,6 +12,8 @@ settings = get_settings()
 
 class GeminiProvider(LLMProvider):
     def __init__(self):
+        if not genai:
+            raise ImportError("google-generativeai package is required for GeminiProvider")
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not configured")
         genai.configure(api_key=settings.GEMINI_API_KEY)

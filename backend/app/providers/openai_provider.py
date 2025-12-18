@@ -8,7 +8,16 @@ import openai
 
 from app.core.config import get_settings
 from app.core.model_capabilities import ModelRegistry
+from app.schemas.llm import LLMOptions
 from .base import LLMProvider, ProviderResponse
+
+from tenacity import (
+    AsyncRetrying,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -285,30 +294,48 @@ class OpenAIProvider(LLMProvider):
     # Public API
     # ----------------------------
 
+    def _validate_options(self, options: Optional[Union[Dict[str, Any], LLMOptions]]) -> LLMOptions:
+        if options is None:
+            return LLMOptions()
+        if isinstance(options, LLMOptions):
+            return options
+        # clamp explicitly if passed as dict
+        return LLMOptions(**options)
+
     async def generate(
         self,
         messages: List[Dict[str, Any]],
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Union[Dict[str, Any], LLMOptions]] = None
     ) -> ProviderResponse:
-        options = options or {}
+        opts = self._validate_options(options)
 
-        model = options.get("model") or self.default_model
+        model = opts.model or self.default_model
         caps = ModelRegistry.get_capabilities(model)
 
-        configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
+        configured_max = opts.max_output_tokens or settings.OPENAI_MAX_COMPLETION_TOKENS
         if caps.max_output_tokens:
             configured_max = min(configured_max, caps.max_output_tokens)
 
-        temperature = options.get("temperature", None)
+        temperature = opts.temperature
         if temperature is not None and not caps.supports_temperature:
             temperature = None
 
-        tools = options.get("tools")
-        tool_choice = options.get("tool_choice")
-        previous_response_id = options.get("previous_response_id")
-
-        # optional tool runner (to auto-loop)
-        tool_runner: Optional[ToolRunner] = options.get("tool_runner")
+        tools = opts.tools
+        tool_choice = opts.tool_choice
+        previous_response_id = opts.previous_response_id
+        tool_runner = opts.tool_runner
+        
+        # Retry Configuration
+        retryer = AsyncRetrying(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            retry=retry_if_exception_type((
+                openai.RateLimitError, 
+                openai.APIConnectionError, 
+                openai.InternalServerError
+            )),
+            before_sleep=before_sleep_log(logger, logging.WARNING)
+        )
 
         try:
             if caps.api_type == "responses":
@@ -330,9 +357,15 @@ class OpenAIProvider(LLMProvider):
                     req["tool_choice"] = tool_choice
                 if previous_response_id:
                     req["previous_response_id"] = previous_response_id
+                
+                if opts.timeout:
+                    req["timeout"] = opts.timeout
 
                 start = time.time()
-                response = await self.client.responses.create(**req)
+                async for attempt in retryer:
+                    with attempt:
+                        response = await self.client.responses.create(**req)
+                
                 latency = time.time() - start
 
                 content = getattr(response, "output_text", "") or ""
@@ -362,21 +395,16 @@ class OpenAIProvider(LLMProvider):
 
                     # second call chained with previous_response_id
                     messages2 = messages + tool_msgs
-                    return await self.generate(
-                        messages2,
-                        options={
-                            **options,
-                            "previous_response_id": getattr(response, "id", None),
-                            # prevent infinite recursion
-                            "tool_runner": tool_runner,
-                        },
-                    )
+                    # Update options for recursion
+                    new_opts = opts.copy()
+                    new_opts.previous_response_id = getattr(response, "id", None)
+                    return await self.generate(messages2, options=new_opts)
 
                 meta_data: Dict[str, Any] = {
                     "provider": "openai",
                     "model": model,
                     "finish_reason": getattr(response, "status", None) or "stop",
-                    "response_id": getattr(response, "id", None),
+                    "response_id": getattr(response, "id", None), # Request ID
                     "latency": latency,
                 }
                 usage = getattr(response, "usage", None)
@@ -387,8 +415,9 @@ class OpenAIProvider(LLMProvider):
 
                 if tool_calls:
                     meta_data["tool_calls"] = tool_calls  # already JSON-safe
+                    meta_data["tool_calls_count"] = len(tool_calls)
 
-                logger.info(f"OpenAI Response (responses): model={model}, content_len={len(content)}, tool_calls={len(tool_calls)}")
+                logger.info(f"OpenAI Response (responses): model={model}, content_len={len(content)}, tool_calls={len(tool_calls)}, lat={latency:.2f}s")
                 if not content and tool_calls:
                     logger.warning("Empty content is expected when model requests tools (responses API).")
 
@@ -410,9 +439,15 @@ class OpenAIProvider(LLMProvider):
                 req["tools"] = tools
             if tool_choice:
                 req["tool_choice"] = tool_choice
+            
+            if opts.timeout:
+                req["timeout"] = opts.timeout
 
             start = time.time()
-            response = await self.client.chat.completions.create(**req)
+            async for attempt in retryer:
+                with attempt:
+                    response = await self.client.chat.completions.create(**req)
+            
             latency = time.time() - start
 
             msg = response.choices[0].message
@@ -424,6 +459,7 @@ class OpenAIProvider(LLMProvider):
                 "provider": "openai",
                 "model": model,
                 "finish_reason": response.choices[0].finish_reason,
+                "response_id": response.id,
                 "latency": latency,
             }
             if response.usage:
@@ -431,8 +467,9 @@ class OpenAIProvider(LLMProvider):
 
             if tool_calls:
                 meta_data["tool_calls"] = tool_calls
+                meta_data["tool_calls_count"] = len(tool_calls)
 
-            logger.info(f"OpenAI Response (chat): model={model}, content_len={len(content)}, tool_calls={len(tool_calls)}")
+            logger.info(f"OpenAI Response (chat): model={model}, content_len={len(content)}, tool_calls={len(tool_calls)}, lat={latency:.2f}s")
 
             # Optional auto-loop for chat tool calling
             if tool_runner and tool_calls:
@@ -461,7 +498,9 @@ class OpenAIProvider(LLMProvider):
                     })
 
                 messages2 = messages + [assistant_tool_msg] + tool_msgs
-                return await self.generate(messages2, options={**options, "tool_runner": tool_runner})
+                new_opts = opts.copy()
+                new_opts.tool_runner = tool_runner # Keep runner
+                return await self.generate(messages2, options=new_opts)
 
             return ProviderResponse(content=content, tool_calls=tool_calls, meta_data=meta_data)
 
@@ -493,24 +532,36 @@ class OpenAIProvider(LLMProvider):
     async def stream_generate(
         self,
         messages: List[Dict[str, Any]],
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Union[Dict[str, Any], LLMOptions]] = None
     ):
-        options = options or {}
+        opts = self._validate_options(options)
 
-        model = options.get("model") or self.default_model
+        model = opts.model or self.default_model
         caps = ModelRegistry.get_capabilities(model)
 
-        configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
+        configured_max = opts.max_output_tokens or settings.OPENAI_MAX_COMPLETION_TOKENS
         if caps.max_output_tokens:
             configured_max = min(configured_max, caps.max_output_tokens)
 
-        temperature = options.get("temperature", None)
+        temperature = opts.temperature
         if temperature is not None and not caps.supports_temperature:
             temperature = None
 
-        tools = options.get("tools")
-        tool_choice = options.get("tool_choice")
-        previous_response_id = options.get("previous_response_id")
+        tools = opts.tools
+        tool_choice = opts.tool_choice
+        previous_response_id = opts.previous_response_id
+        
+        # Retry logic for stream start only
+        retryer = AsyncRetrying(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            retry=retry_if_exception_type((
+                openai.RateLimitError, 
+                openai.APIConnectionError, 
+                openai.InternalServerError
+            )),
+            before_sleep=before_sleep_log(logger, logging.WARNING)
+        )
 
         try:
             if caps.api_type == "responses":
@@ -532,8 +583,13 @@ class OpenAIProvider(LLMProvider):
                     req["tool_choice"] = tool_choice
                 if previous_response_id:
                     req["previous_response_id"] = previous_response_id
+                if opts.timeout:
+                    req["timeout"] = opts.timeout
 
-                raw_stream = await self.client.responses.create(**req)
+                async for attempt in retryer:
+                    with attempt:
+                        raw_stream = await self.client.responses.create(**req)
+                
                 return self._normalize_responses_stream(raw_stream)
 
             # chat completions streaming
@@ -551,8 +607,12 @@ class OpenAIProvider(LLMProvider):
                 req["tools"] = tools
             if tool_choice:
                 req["tool_choice"] = tool_choice
+            if opts.timeout:
+                req["timeout"] = opts.timeout
 
-            return await self.client.chat.completions.create(**req)
+            async for attempt in retryer:
+                with attempt:
+                    return await self.client.chat.completions.create(**req)
 
         except Exception as e:
             logger.exception(f"OpenAI Stream Error: {e}")

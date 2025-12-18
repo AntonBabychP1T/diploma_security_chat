@@ -13,6 +13,10 @@ class AttachmentProcessor:
 
             if att.type == "application/pdf" or name.lower().endswith(".pdf"):
                 extracted_text = await asyncio.to_thread(extract_text_from_base64_pdf, att.content)
+                # Max 20k chars per pdf
+                if len(extracted_text) > 20000:
+                    extracted_text = extracted_text[:20000] + "... [TRUNCATED]"
+                
                 processed_parts.append({
                     "type": "text",
                     "text": f"--- Document Content: {name or 'document.pdf'} ---\n{extracted_text}\n--- End Document ---"

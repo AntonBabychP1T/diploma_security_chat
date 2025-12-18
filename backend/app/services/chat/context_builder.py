@@ -25,7 +25,7 @@ class ContextBuilder:
             "concise": "You are a concise assistant. Answer briefly and directly.",
         }
 
-    async def build_context(self, chat_id: int, style: str = "default", history_limit: int = 5) -> Tuple[str, List[Message]]:
+    async def build_context(self, chat_id: int, style: str = "default", history_limit: int = 50, max_chars: int = 40000) -> Tuple[str, List[Message]]:
         """
         Returns:
           - system_prompt: str
@@ -34,12 +34,21 @@ class ContextBuilder:
         start_time = time.time()
 
         history = await self._get_chat_history(chat_id)
+        
+        # 1. First limit by count (soft limit)
         recent_history = history[-history_limit:]
+        
+        # 2. Then limit by chars (hard budget)
+        recent_history = self._trim_history(recent_history, max_chars)
 
         memory_context: list[str] = []
         if self.memory_service:
             try:
+                # We can fetch memories related to the *recent* content
+                last_content = recent_history[-1].content if recent_history else ""
                 stored_memories = await self.memory_service.get_memories()
+                # Ideally retrieve_context(last_content) but keeping existing logic for safety
+                # Using existing _select_relevant_memories which filters generic dump
                 memory_context = self._select_relevant_memories(stored_memories)
             except Exception as e:
                 logger.error(f"Memory context build error: {e}")
@@ -51,8 +60,28 @@ class ContextBuilder:
         else:
             system_prompt = base_prompt
 
-        logger.info(f"Context build took {time.time() - start_time:.4f}s")
+        logger.info(f"Context build took {time.time() - start_time:.4f}s. History: {len(recent_history)} items.")
         return system_prompt, recent_history
+
+    def _trim_history(self, history: List[Message], max_chars: int) -> List[Message]:
+        if not history:
+            return []
+        
+        total_chars = 0
+        trimmed = []
+        # Traverse from end to start to keep most recent
+        for msg in reversed(history):
+            content = msg.content or ""
+            c_len = len(content)
+            
+            # Simple heuristic: if adding this message exceeds budget, we stop
+            if total_chars + c_len > max_chars:
+                break
+            
+            trimmed.append(msg)
+            total_chars += c_len
+            
+        return list(reversed(trimmed))
 
     async def _get_chat_history(self, chat_id: int) -> List[Message]:
         query = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc())
