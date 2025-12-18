@@ -461,6 +461,12 @@ export const ChatPage: React.FC = () => {
 
                                         for (let i = 0; i < messages.length; i++) {
                                             const msg = messages[i];
+                                            
+                                            // Skip rendering optimistic message if it's empty (we show the loader instead)
+                                            if (msg.id === optimisticAssistantId && !msg.content) {
+                                                continue;
+                                            }
+
                                             const prevMsg = messages[i - 1];
 
                                             // Check for Arena Pair
@@ -500,7 +506,7 @@ export const ChatPage: React.FC = () => {
                                         return renderedMessages;
                                     })()}
 
-                                    {sending && (
+                                    {sending && (!optimisticAssistantId || (activeChat.messages || []).find(m => m.id === optimisticAssistantId && !m.content)) && (
                                         <div className="flex gap-3 sm:gap-4 max-w-4xl mx-auto w-full animate-in fade-in duration-300">
                                             <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center shrink-0 shadow-sm mt-1">
                                                 <Bot size={16} className="text-white" />
