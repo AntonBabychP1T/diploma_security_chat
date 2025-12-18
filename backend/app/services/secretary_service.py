@@ -11,6 +11,9 @@ from app.services.google_auth_service import GoogleAuthService
 from app.providers import ProviderFactory
 from app.core.config import get_settings
 from app.services.secretary_tools import SecretaryTools
+from app.services.pii_service import PIIService
+from app.services.tools_definition import SECRETARY_TOOLS_DEFINITION
+from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -21,248 +24,28 @@ class SecretaryService:
         self.user_id = user_id
         self.provider = ProviderFactory.get_provider("openai")
         self.tools_impl = SecretaryTools(db, user_id)
+        self.pii = PIIService()
 
     async def process_request(self, query: str, history: Optional[List[dict]] = None) -> str:
+        # PII Mapping
+        pii_mapping: Dict[str, str] = {}
+        
+        # Mask History
+        masked_history = []
+        if history:
+            for msg in history[-8:]:
+                if "content" in msg and isinstance(msg["content"], str):
+                    masked_content, pii_mapping = self.pii.mask(msg["content"], mapping=pii_mapping)
+                    new_msg = {**msg, "content": masked_content}
+                    masked_history.append(new_msg)
+                else:
+                    masked_history.append(msg)
+        
+        # Mask Query
+        masked_query, pii_mapping = self.pii.mask(query, mapping=pii_mapping)
+        
         # 1. Define Tools
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "list_emails",
-                    "description": "List emails based on filters. Use this to find unread emails, emails from specific people, or by subject.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "The account label to use (e.g., 'work', 'personal'). Defaults to 'work'."},
-                            "filters": {
-                                "type": "object",
-                                "properties": {
-                                    "is_unread": {"type": "boolean"},
-                                    "sender": {"type": "string"},
-                                    "subject_keyword": {"type": "string"},
-                                    "max_results": {"type": "integer"}
-                                }
-                            }
-                        },
-                        "required": ["filters"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "list_events",
-                    "description": "List calendar events for a specific time range.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "The account label to use (e.g., 'work', 'personal'). Defaults to 'work'."},
-                            "start_time": {"type": "string", "description": "Start time in ISO format (YYYY-MM-DDTHH:MM:SS)."},
-                            "end_time": {"type": "string", "description": "End time in ISO format (YYYY-MM-DDTHH:MM:SS)."}
-                        },
-                        "required": ["start_time", "end_time"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "find_free_slots",
-                    "description": "Find free time slots in the calendar.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "The account label to use (e.g., 'work', 'personal'). Defaults to 'work'."},
-                            "start_time": {"type": "string", "description": "Start time in ISO format."},
-                            "end_time": {"type": "string", "description": "End time in ISO format."},
-                            "duration_minutes": {"type": "integer", "description": "Duration of the slot in minutes."}
-                        },
-                        "required": ["start_time", "end_time", "duration_minutes"]
-                    }
-                }
-            }
-            ,
-            {
-                "type": "function",
-                "function": {
-                    "name": "create_event",
-                    "description": "Create a calendar event with optional attendees.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "The account label to use (e.g., 'work', 'personal'). Defaults to 'work'."},
-                            "summary": {"type": "string"},
-                            "start_time": {"type": "string", "description": "Start time ISO (YYYY-MM-DDTHH:MM:SS)"},
-                            "end_time": {"type": "string", "description": "End time ISO (YYYY-MM-DDTHH:MM:SS)"},
-                            "attendees": {"type": "array", "items": {"type": "string"}, "description": "List of attendee emails"}
-                        },
-                        "required": ["summary", "start_time", "end_time"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "reply_email",
-                    "description": "Reply to an email.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_id": {"type": "string"},
-                            "body": {"type": "string"},
-                            "reply_all": {"type": "boolean"}
-                        },
-                        "required": ["message_id", "body"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "forward_email",
-                    "description": "Forward an email.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_id": {"type": "string"},
-                            "to": {"type": "array", "items": {"type": "string"}},
-                            "body": {"type": "string"}
-                        },
-                        "required": ["message_id", "to", "body"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "delete_emails",
-                    "description": "Delete emails by ID.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_ids": {"type": "array", "items": {"type": "string"}},
-                            "hard_delete": {"type": "boolean"}
-                        },
-                        "required": ["message_ids"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_event",
-                    "description": "Get details of a specific calendar event.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "event_id": {"type": "string"}
-                        },
-                        "required": ["event_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "update_event",
-                    "description": "Update an existing calendar event.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "event_id": {"type": "string"},
-                            "summary": {"type": "string"},
-                            "description": {"type": "string"},
-                            "location": {"type": "string"},
-                            "start_time": {"type": "string", "description": "ISO format"},
-                            "end_time": {"type": "string", "description": "ISO format"},
-                            "attendees": {"type": "array", "items": {"type": "string"}}
-                        },
-                        "required": ["event_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "delete_event",
-                    "description": "Delete a calendar event.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "event_id": {"type": "string"}
-                        },
-                        "required": ["event_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "respond_to_invitation",
-                    "description": "Respond to a calendar invitation.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "event_id": {"type": "string"},
-                            "response": {"type": "string", "enum": ["accepted", "declined", "tentative"]}
-                        },
-                        "required": ["event_id", "response"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "mark_email_as_read",
-                    "description": "Mark an email as read.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_id": {"type": "string"}
-                        },
-                        "required": ["message_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "mark_email_as_unread",
-                    "description": "Mark an email as unread.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_id": {"type": "string"}
-                        },
-                        "required": ["message_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "star_email",
-                    "description": "Star/flag an email as important.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "account_label": {"type": "string", "description": "Account label (default 'work')"},
-                            "message_id": {"type": "string"}
-                        },
-                        "required": ["message_id"]
-                    }
-                }
-            }
-        ]
+        tools = SECRETARY_TOOLS_DEFINITION
 
         # 2. Prepare Messages
         current_time = datetime.utcnow().isoformat()
@@ -281,12 +64,11 @@ IMPORTANT:
 Be concise: respond in 1-3 short sentences summarizing the tool results.
 """
         messages = [{"role": "system", "content": system_prompt}]
-        if history:
-            messages.extend(history[-8:])  # keep limited context
-        messages.append({"role": "user", "content": query})
+        messages.extend(masked_history)
+        messages.append({"role": "user", "content": masked_query})
 
         # 3. Agent Loop
-        max_turns = 5
+        max_turns = getattr(settings, "SECRETARY_MAX_TURNS", 5)
         import asyncio
         for _ in range(max_turns):
             response = await self.provider.generate(
@@ -308,7 +90,9 @@ Be concise: respond in 1-3 short sentences summarizing the tool results.
 
             if not tool_calls:
                 # Final response
-                return message_content or "I'm done."
+                if message_content:
+                    return self.pii.unmask(message_content, pii_mapping)
+                return "I'm done."
 
             # Execute Tools in Parallel
             tasks = []
@@ -317,7 +101,10 @@ Be concise: respond in 1-3 short sentences summarizing the tool results.
                 arguments = json.loads(tool_call.function.arguments)
                 call_id = tool_call.id
                 
-                logger.info(f"Executing tool {function_name} with args {arguments}")
+                # Unmask arguments
+                unmasked_args = self._unmask_structure(arguments, pii_mapping)
+
+                logger.info(f"Executing tool {function_name} with args {unmasked_args}")
                 
                 async def execute_tool(fname, args, cid):
                     try:
@@ -351,6 +138,15 @@ Be concise: respond in 1-3 short sentences summarizing the tool results.
                             res = await self.tools_impl.mark_email_as_unread(args.get("account_label", "work"), args.get("message_id"))
                         elif fname == "star_email":
                             res = await self.tools_impl.star_email(args.get("account_label", "work"), args.get("message_id"))
+                        # Missing tools
+                        elif fname == "unstar_email":
+                            res = await self.tools_impl.unstar_email(args.get("account_label", "work"), args.get("message_id"))
+                        elif fname == "send_email":
+                            res = await self.tools_impl.send_email(args.get("account_label", "work"), args.get("to", []), args.get("subject", ""), args.get("body", ""))
+                        elif fname == "get_email":
+                            res = await self.tools_impl.get_email(args.get("account_label", "work"), args.get("message_id"))
+                        elif fname == "get_next_event":
+                            res = await self.tools_impl.get_next_event(args.get("account_label", "work"))
                         else:
                             res = f"Error: Unknown tool {fname}"
                     except Exception as e:
@@ -362,14 +158,34 @@ Be concise: respond in 1-3 short sentences summarizing the tool results.
                         "content": res
                     }
 
-                tasks.append(execute_tool(function_name, arguments, call_id))
+                tasks.append(execute_tool(function_name, unmasked_args, call_id))
 
             results = await asyncio.gather(*tasks)
-            messages.extend(results)
+            
+            # Mask results using the same mapping
+            masked_results = []
+            for r in results:
+                if isinstance(r.get("content"), str):
+                    masked_content, pii_mapping = self.pii.mask(r["content"], mapping=pii_mapping)
+                    r["content"] = masked_content
+                masked_results.append(r)
+            
+            messages.extend(masked_results)
 
-        return "I reached the maximum number of steps and couldn't finish the task."
+        final_msg = "I reached the maximum number of steps and couldn't finish the task."
+        return self.pii.unmask(final_msg, pii_mapping)
 
-    async def get_connected_accounts(self) -> List[GoogleAccount]:
+    def _unmask_structure(self, value, mapping: Dict[str, str]):
+        if isinstance(value, str):
+            return self.pii.unmask(value, mapping)
+        elif isinstance(value, list):
+            return [self._unmask_structure(v, mapping) for v in value]
+        elif isinstance(value, dict):
+            return {k: self._unmask_structure(v, mapping) for k, v in value.items()}
+        else:
+            return value
+
+    async def get_connected_accounts(self) -> Dict[str, List[Any]]:
         result = await self.db.execute(select(GoogleAccount).where(GoogleAccount.user_id == self.user_id))
         google_accounts = result.scalars().all()
         # Microsoft placeholder if implemented later

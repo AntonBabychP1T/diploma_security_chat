@@ -16,6 +16,7 @@ class SecretaryTools:
     def __init__(self, db: AsyncSession, user_id: int):
         self.db = db
         self.user_id = user_id
+        self._accounts_cache = None
 
     async def list_emails(self, account_label: str, filters: Dict[str, Any]) -> str:
         """
@@ -276,21 +277,26 @@ class SecretaryTools:
             return f"Error getting next event: {str(e)}"
 
     async def _get_client(self, label: str) -> Optional[Any]: # Returns MailCalendarProvider
-        # 1. Try Google Accounts
-        query = select(GoogleAccount).where(GoogleAccount.user_id == self.user_id)
-        result = await self.db.execute(query)
-        google_accounts = result.scalars().all()
-        
-        # 2. Try Microsoft Accounts
-        query_ms = select(MicrosoftAccount).where(MicrosoftAccount.user_id == self.user_id)
-        result_ms = await self.db.execute(query_ms)
-        ms_accounts = result_ms.scalars().all()
-        
-        all_accounts = []
-        for acc in google_accounts:
-            all_accounts.append({"type": "google", "account": acc})
-        for acc in ms_accounts:
-            all_accounts.append({"type": "microsoft", "account": acc})
+        if self._accounts_cache is None:
+            # 1. Try Google Accounts
+            query = select(GoogleAccount).where(GoogleAccount.user_id == self.user_id)
+            result = await self.db.execute(query)
+            google_accounts = result.scalars().all()
+            
+            # 2. Try Microsoft Accounts
+            query_ms = select(MicrosoftAccount).where(MicrosoftAccount.user_id == self.user_id)
+            result_ms = await self.db.execute(query_ms)
+            ms_accounts = result_ms.scalars().all()
+            
+            all_accounts = []
+            for acc in google_accounts:
+                all_accounts.append({"type": "google", "account": acc})
+            for acc in ms_accounts:
+                all_accounts.append({"type": "microsoft", "account": acc})
+                
+            self._accounts_cache = all_accounts
+        else:
+            all_accounts = self._accounts_cache
             
         target = None
         if not label or label.lower() == "all":
