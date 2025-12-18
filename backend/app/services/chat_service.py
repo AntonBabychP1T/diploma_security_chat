@@ -63,7 +63,6 @@ class ChatService:
         self.db.add(new_chat)
         try:
             await self.db.commit()
-            await self.db.commit()
             # Refresh with messages loaded
             query = select(Chat).options(selectinload(Chat.messages)).where(Chat.id == new_chat.id)
             result = await self.db.execute(query)
@@ -131,6 +130,9 @@ class ChatService:
                 memory_context = self.build_relevant_memory_context(stored_memories)
             except Exception as e:
                 logger.error(f"Memory context build error: {e}")
+        logger.info(f"Chat {chat_id}: Memory context build took {time.time() - start_time:.4f}s")
+        
+        step_start = time.time()
         
         # 1. Save User Message (Original)
         meta_data = {}
@@ -141,9 +143,17 @@ class ChatService:
         user_message = Message(chat_id=chat_id, role="user", content=content, meta_data=meta_data)
         self.db.add(user_message)
         await self.db.commit() # Commit to get ID and save state
+        logger.info(f"Chat {chat_id}: User message saved in {time.time() - step_start:.4f}s")
+        
+
+        step_start = time.time()
         
         # 2. Load History
         history = await self.get_chat_history(chat_id)
+        logger.info(f"Chat {chat_id}: History loaded in {time.time() - step_start:.4f}s")
+
+
+        step_start = time.time()
         
         # 3. Prepare Context & Masking
         context_messages = history[-5:] 
@@ -159,7 +169,7 @@ class ChatService:
         masked_messages.append({"role": "system", "content": system_prompt})
 
         for i, msg in enumerate(context_messages):
-            masked_content, mapping = self.pii_service.mask(msg.content)
+            masked_content, combined_mapping = await asyncio.to_thread(self.pii_service.mask, msg.content, combined_mapping)
             
             # If this is the last message (current user message) and we have attachments
             if i == len(context_messages) - 1 and attachments and msg.role == "user":
@@ -167,7 +177,7 @@ class ChatService:
                  parts = [{"type": "text", "text": masked_content}]
                  for att in attachments:
                      if att.type == "application/pdf" or att.name.lower().endswith(".pdf"):
-                         extracted_text = extract_text_from_base64_pdf(att.content)
+                         extracted_text = await asyncio.to_thread(extract_text_from_base64_pdf, att.content)
                          parts.append({
                              "type": "text", 
                              "text": f"--- Document Content: {att.name} ---\n{extracted_text}\n--- End Document ---"
@@ -175,9 +185,13 @@ class ChatService:
                      else:
                          # For now, pass base64 directly in a generic format
                          # The provider adapter will convert to specific format (OpenAI image_url, Gemini blob)
+                         url = att.content
+                         if not url.startswith("http") and not url.startswith("data:"):
+                             url = f"data:{att.type};base64,{url}"
+
                          parts.append({
                              "type": "image_url" if att.type.startswith("image") else "text", 
-                             "image_url": {"url": att.content} if att.type.startswith("image") else None,
+                             "image_url": {"url": url} if att.type.startswith("image") else None,
                              "text": att.content if not att.type.startswith("image") else None,
                              "mime_type": att.type # Helper for provider
                          })
@@ -185,7 +199,10 @@ class ChatService:
             else:
                 masked_messages.append({"role": msg.role, "content": masked_content})
                 
-            combined_mapping.update(mapping) # Merge mappings
+            
+        logger.info(f"Chat {chat_id}: PII masking took {time.time() - step_start:.4f}s")
+        step_start = time.time()
+
             
         # 4. Call LLM
         provider = ProviderFactory.get_provider(provider_name)
@@ -197,15 +214,24 @@ class ChatService:
                     "max_completion_tokens": self.settings.OPENAI_MAX_COMPLETION_TOKENS
                 }
             )
+            logger.info(f"Chat {chat_id}: LLM generation took {time.time() - step_start:.4f}s")
+            step_start = time.time()
         except Exception as e:
             logger.error(f"LLM Error: {e}")
             raise e
 
+        logger.info(f"Chat {chat_id}: LLM generation took {time.time() - step_start:.4f}s")
+        step_start = time.time()
+
         # 5. Unmask Response
         raw_content = llm_response.content or ""
-        unmasked_content = self.pii_service.unmask(raw_content, combined_mapping) or raw_content
+        unmasked_content = await asyncio.to_thread(self.pii_service.unmask, raw_content, combined_mapping)
         if not unmasked_content.strip():
             unmasked_content = "Вибачте, не вдалося згенерувати відповідь цього разу."
+            
+        logger.info(f"Chat {chat_id}: PII unmasking took {time.time() - step_start:.4f}s")
+        step_start = time.time()
+
         
         end_time = time.time()
         latency = end_time - start_time
@@ -228,7 +254,8 @@ class ChatService:
         await self.db.commit()
         await self.db.refresh(assistant_message)
 
-        logger.info(f"Chat {chat_id}: Processed message. Latency: {latency:.2f}s. Masked: {meta_data['masked_used']}")
+        logger.info(f"Chat {chat_id}: Assistant message saved in {time.time() - step_start:.4f}s")
+        logger.info(f"Chat {chat_id}: Total Processed message. Latency: {latency:.2f}s. Masked: {meta_data['masked_used']}")
         
         # Auto-rename if "New Chat" and early in conversation
         if chat.title == "New Chat":
@@ -268,6 +295,8 @@ class ChatService:
                 memory_context = self.build_relevant_memory_context(stored_memories)
             except Exception as e:
                 logger.error(f"Memory context build error: {e}")
+        logger.info(f"Chat {chat_id}: [Stream] Memory context build took {time.time() - start_time:.4f}s")
+        step_start = time.time()
 
         # Save user message first
         meta_data = {}
@@ -277,8 +306,12 @@ class ChatService:
         user_message = Message(chat_id=chat_id, role="user", content=content, meta_data=meta_data)
         self.db.add(user_message)
         await self.db.commit()
+        logger.info(f"Chat {chat_id}: [Stream] User message saved in {time.time() - step_start:.4f}s")
+        step_start = time.time()
 
         history = await self.get_chat_history(chat_id)
+        logger.info(f"Chat {chat_id}: [Stream] History loaded in {time.time() - step_start:.4f}s")
+        step_start = time.time()
         context_messages = history[-5:] 
 
         masked_messages = []
@@ -291,21 +324,25 @@ class ChatService:
         masked_messages.append({"role": "system", "content": system_prompt})
 
         for i, msg in enumerate(context_messages):
-            masked_content, mapping = self.pii_service.mask(msg.content)
+            masked_content, combined_mapping = await asyncio.to_thread(self.pii_service.mask, msg.content, combined_mapping)
             
             if i == len(context_messages) - 1 and attachments and msg.role == "user":
                 parts = [{"type": "text", "text": masked_content}]
                 for att in attachments:
                      if att.type == "application/pdf" or att.name.lower().endswith(".pdf"):
-                         extracted_text = extract_text_from_base64_pdf(att.content)
+                         extracted_text = await asyncio.to_thread(extract_text_from_base64_pdf, att.content)
                          parts.append({
                              "type": "text", 
                              "text": f"--- Document Content: {att.name} ---\n{extracted_text}\n--- End Document ---"
                          })
                      else:
+                         url = att.content
+                         if not url.startswith("http") and not url.startswith("data:"):
+                             url = f"data:{att.type};base64,{url}"
+                         
                          parts.append({
                              "type": "image_url" if att.type.startswith("image") else "text", 
-                             "image_url": {"url": att.content} if att.type.startswith("image") else None,
+                             "image_url": {"url": url} if att.type.startswith("image") else None,
                              "text": att.content if not att.type.startswith("image") else None,
                              "mime_type": att.type
                          })
@@ -313,7 +350,11 @@ class ChatService:
             else:
                 masked_messages.append({"role": msg.role, "content": masked_content})
                 
-            combined_mapping.update(mapping)
+
+        
+        logger.info(f"Chat {chat_id}: [Stream] PII masking took {time.time() - step_start:.4f}s")
+        step_start = time.time()
+
 
         provider = ProviderFactory.get_provider(provider_name)
         stream = await provider.stream_generate(
@@ -323,13 +364,19 @@ class ChatService:
                 "max_completion_tokens": self.settings.OPENAI_MAX_COMPLETION_TOKENS
             }
         )
-
+        logger.info(f"Chat {chat_id}: [Stream] LLM stream init took {time.time() - step_start:.4f}s")
+        
         full_chunks: list[str] = []
 
         async def event_generator():
             nonlocal full_chunks
             try:
+                first_token_time = None
                 async for chunk in stream:
+                    if first_token_time is None:
+                        first_token_time = time.time()
+                        logger.info(f"Chat {chat_id}: [Stream] Time to First Token (TTFT): {first_token_time - step_start:.4f}s")
+                    
                     if fastapi_request and await fastapi_request.is_disconnected():
                         await stream.aclose()
                         return
@@ -338,7 +385,7 @@ class ChatService:
                     if not delta:
                         continue
                     full_chunks.append(delta)
-                    unmasked_delta = self.pii_service.unmask(delta, combined_mapping) if combined_mapping else delta
+                    unmasked_delta = await asyncio.to_thread(self.pii_service.unmask, delta, combined_mapping) if combined_mapping else delta
                     payload = {"delta": unmasked_delta}
                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
             finally:
@@ -349,7 +396,7 @@ class ChatService:
                     pass
 
                 full_raw = "".join(full_chunks)
-                unmasked_full = self.pii_service.unmask(full_raw, combined_mapping) if combined_mapping else full_raw
+                unmasked_full = await asyncio.to_thread(self.pii_service.unmask, full_raw, combined_mapping) if combined_mapping else full_raw
                 if not unmasked_full.strip():
                     unmasked_full = "Вибачте, не вдалося згенерувати відповідь цього разу."
 
@@ -373,12 +420,15 @@ class ChatService:
                 await self.db.refresh(assistant_message)
 
                 # Auto-rename
+                # Refresh chat to ensure we have the latest state and it's attached
+                await self.db.refresh(chat)
                 if chat.title == "New Chat":
                      new_title = self._generate_title(content, unmasked_full)
                      if new_title != "New Chat":
                          chat.title = new_title
                          self.db.add(chat)
                          await self.db.commit()
+                         logger.info(f"Chat {chat_id}: Auto-renamed to '{new_title}'")
 
                 # Run memory update in background
                 if self.memory_service:
@@ -472,9 +522,8 @@ class ChatService:
         masked_messages.append({"role": "system", "content": system_prompt})
 
         for msg in context_messages:
-            masked_content, mapping = self.pii_service.mask(msg.content)
+            masked_content, combined_mapping = await asyncio.to_thread(self.pii_service.mask, msg.content, combined_mapping)
             masked_messages.append({"role": msg.role, "content": masked_content})
-            combined_mapping.update(mapping)
 
         # 3. Parallel LLM Calls
         comparison_id = str(uuid.uuid4())
@@ -518,7 +567,7 @@ class ChatService:
             else:
                 raw_content = res.content or ""
                 logger.info(f"Model {model_id}: raw_content length = {len(raw_content)}, res.content type = {type(res.content)}")
-                content = self.pii_service.unmask(raw_content, combined_mapping) or raw_content
+                content = await asyncio.to_thread(self.pii_service.unmask, raw_content, combined_mapping) or raw_content
                 logger.info(f"Model {model_id}: final content length = {len(content)}")
                 meta = res.meta_data or {}
             

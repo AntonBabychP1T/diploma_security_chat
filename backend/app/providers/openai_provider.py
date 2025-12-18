@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+import time
 import openai
 from app.core.config import get_settings
 from .base import LLMProvider, ProviderResponse
@@ -25,7 +26,10 @@ class OpenAIProvider(LLMProvider):
                             "type": "image_url",
                             "image_url": item.get("image_url")
                         }
-                        if not new_item["image_url"]: # Skip invalid
+                        
+                        img = item.get("image_url") or {}
+                        url = img.get("url")
+                        if not url:
                             continue
                         new_content.append(new_item)
                     elif item.get("type") == "text":
@@ -45,7 +49,7 @@ class OpenAIProvider(LLMProvider):
         options = options or {}
 
 
-        model = options.get("model", self.default_model)
+        model = options.get("model") or self.default_model
         
         # Model-specific constraints
         configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
@@ -138,7 +142,7 @@ class OpenAIProvider(LLMProvider):
         options: Optional[Dict[str, Any]] = None
     ):
         options = options or {}
-        model = options.get("model", self.default_model)
+        model = options.get("model") or self.default_model
 
         configured_max = options.get("max_completion_tokens") or settings.OPENAI_MAX_COMPLETION_TOKENS
         
@@ -160,7 +164,13 @@ class OpenAIProvider(LLMProvider):
             kwargs["temperature"] = temperature
 
         try:
-            return await self.client.chat.completions.create(**kwargs)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"OpenAI Stream Request: model={model}, stream={kwargs.get('stream')}, max_tokens={max_completion_tokens}")
+            start = time.time()
+            stream = await self.client.chat.completions.create(**kwargs)
+            logger.info(f"OpenAI Stream Response received in {time.time() - start:.4f}s")
+            return stream
         except Exception as e:
             err_text = str(e)
             if "temperature" in err_text:
