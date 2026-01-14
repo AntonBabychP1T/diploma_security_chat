@@ -10,7 +10,7 @@ import logging
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM, oauth2_scheme
 from app.models.user import User
-from app.models.invite import Invite
+from app.models.invite import InviteCode
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
@@ -54,7 +54,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Email already registered")
         
         # Check invite
-        result = await db.execute(select(Invite).where(Invite.code == user_data.invite_code))
+        result = await db.execute(select(InviteCode).where(InviteCode.code == user_data.invite_code))
         invite = result.scalar_one_or_none()
 
         if not invite:

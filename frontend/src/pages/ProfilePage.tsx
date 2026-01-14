@@ -31,6 +31,7 @@ import {
     Link2,
     Pencil
 } from 'lucide-react';
+import { PushSubscriptionManager } from '../components/PushSubscriptionManager';
 
 const memoryCategories = [
     { id: 'profile', label: 'Профіль' },
@@ -642,6 +643,9 @@ export const ProfilePage: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                <PushSubscriptionManager />
+
             </div>
         </div>
     );

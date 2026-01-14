@@ -24,7 +24,25 @@ class ChatService:
         else:
              self.pipeline = None
 
+    async def _cleanup_empty_chats(self):
+        if not self.user_id:
+            return
+            
+        # Get all chats for user to check for emptiness
+        # Efficiently checking for empty messages could be done via SQL, but using ORM for consistency
+        query = select(Chat).options(selectinload(Chat.messages)).where(Chat.user_id == self.user_id)
+        result = await self.db.execute(query)
+        chats = result.scalars().all()
+        
+        for chat in chats:
+            if len(chat.messages) == 0:
+                 logger.info(f"Deleting empty chat {chat.id} (cleanup)")
+                 await self.db.delete(chat)
+                 
     async def create_chat(self, chat_data: ChatCreate) -> Chat:
+        # Cleanup previously empty chats before creating a new one
+        await self._cleanup_empty_chats()
+
         logger.info(f"Creating chat with title: {chat_data.title} for user_id: {self.user_id}")
         new_chat = Chat(title=chat_data.title, user_id=self.user_id)
         self.db.add(new_chat)
@@ -116,6 +134,32 @@ class ChatService:
         return self.pipeline.run_stream(
             chat_id, content, attachments, style, provider_name, model, fastapi_request
         )
+
+    async def create_system_message(
+        self, 
+        chat_id: int, 
+        content: str, 
+        source: str = "system", 
+        metadata: Optional[dict] = None
+    ) -> Message:
+        chat = await self.get_chat(chat_id)
+        if not chat:
+            raise ValueError("Chat not found")
+        
+        meta = metadata or {}
+        meta["source"] = source
+        meta["is_system_generated"] = True
+        
+        msg = Message(
+            chat_id=chat_id, 
+            role="assistant", 
+            content=content, 
+            meta_data=meta
+        )
+        self.db.add(msg)
+        await self.db.commit()
+        await self.db.refresh(msg)
+        return msg
 
     async def send_arena_message(self, chat_id: int, content: str, models: List[str], style: str = "default") -> List[Message]:
         # Arena logic is distinct, parallel execution.

@@ -2,6 +2,7 @@ import React from 'react';
 import { Message } from '../api/client';
 import clsx from 'clsx';
 import { User, Bot, Shield, Clock } from 'lucide-react';
+import { ActionCard } from './ActionCard';
 
 interface Props {
     message: Message;
@@ -59,19 +60,35 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
 
                 {/* Metadata / Footer */}
                 {!isUser && message.meta_data && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        {message.meta_data.masked_used && (
-                            <div className="flex items-center gap-1 text-[10px] text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
-                                <Shield size={10} />
-                                <span>PII Masked</span>
+                    <div className="mt-2 w-full">
+                        {/* Action Cards for Digest */}
+                        {message.meta_data.is_system_generated && message.meta_data.actions && (
+                            <div className="mt-3 space-y-2">
+                                {message.meta_data.actions.map((action: any) => (
+                                    <ActionCard key={action.id} action={action} />
+                                ))}
                             </div>
                         )}
-                        {message.meta_data.latency && (
-                            <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                                <Clock size={10} />
-                                <span>{message.meta_data.latency.toFixed(2)}s</span>
-                            </div>
-                        )}
+
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            {message.meta_data.masked_used && (
+                                <div className="flex items-center gap-1 text-[10px] text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                                    <Shield size={10} />
+                                    <span>PII Masked</span>
+                                </div>
+                            )}
+                            {message.meta_data.latency && (
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                    <Clock size={10} />
+                                    <span>{message.meta_data.latency.toFixed(2)}s</span>
+                                </div>
+                            )}
+                            {message.meta_data.source && (
+                                <div className="flex items-center gap-1 text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                    <span>{message.meta_data.source}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

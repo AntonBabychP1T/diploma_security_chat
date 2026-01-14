@@ -12,3 +12,7 @@ email-validator
 python-multipart
 google-generativeai
 pypdf
+pywebpush
+apscheduler
+httpx
+pytz

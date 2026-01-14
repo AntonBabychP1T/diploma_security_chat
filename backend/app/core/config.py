@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     MICROSOFT_REDIRECT_URI: str | None = None
     MICROSOFT_TENANT_ID: str = "common"
 
+    # Web Push
+    VAPID_PRIVATE_KEY: str | None = None
+    VAPID_PUBLIC_KEY: str | None = None
+    VAPID_CLAIM_EMAIL: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache

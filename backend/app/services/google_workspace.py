@@ -217,6 +217,24 @@ class GoogleWorkspaceClient:
             response.raise_for_status()
             return response.json()
 
+    async def create_draft(self, to: List[str], subject: str, body: str) -> Dict[str, Any]:
+        """Creates a draft email."""
+        message = MIMEText(body)
+        message['to'] = ", ".join(to)
+        message['subject'] = subject
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        
+        payload = {
+            'message': {
+                'raw': raw
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.GMAIL_API_URL}/drafts", headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+
     async def reply_email(self, message_id: str, body: str, reply_all: bool = False) -> Dict[str, Any]:
         # 1. Get original message to find threadId and headers
         original = await self.get_email(message_id)

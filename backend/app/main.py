@@ -8,7 +8,7 @@ from app.routers import memories
 from app.routers import audio
 from sqlalchemy import select
 from app.core.database import SessionLocal
-from app.models.invite import Invite
+from app.models.invite import InviteCode
 from app.utils.invite_manager import generate_code
 import logging
 
@@ -59,7 +59,7 @@ async def startup():
     async with SessionLocal() as db:
         try:
             # Check if any invites exist
-            result = await db.execute(select(Invite))
+            result = await db.execute(select(InviteCode))
             invites = result.scalars().all()
             
             # Check if all used or empty
@@ -70,7 +70,7 @@ async def startup():
                 new_codes = []
                 for _ in range(5):
                     code = generate_code()
-                    invite = Invite(code=code)
+                    invite = InviteCode(code=code)
                     db.add(invite)
                     new_codes.append(code)
                 
@@ -86,6 +86,12 @@ app.include_router(chats.router)
 app.include_router(metrics.router)
 app.include_router(memories.router)
 app.include_router(audio.router)
+
+from app.routers import digest
+app.include_router(digest.router)
+
+from app.routers import notifications
+app.include_router(notifications.router)
 
 @app.get("/")
 async def root():

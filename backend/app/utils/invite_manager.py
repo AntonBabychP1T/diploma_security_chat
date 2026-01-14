@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app.core.database import SessionLocal
-from app.models.invite import Invite
+from app.models.invite import InviteCode
 
 def generate_code(length=12):
     alphabet = string.ascii_uppercase + string.digits
@@ -20,7 +20,7 @@ async def create_invites(count=10):
         created = []
         for _ in range(count):
             code = generate_code()
-            invite = Invite(code=code)
+            invite = InviteCode(code=code)
             db.add(invite)
             created.append(code)
         
