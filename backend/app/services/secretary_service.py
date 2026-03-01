@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Optional, Dict, List, Any
 import json
 import logging
 from datetime import datetime
@@ -12,6 +12,7 @@ from app.core.model_capabilities import ModelRegistry
 from app.providers import ProviderFactory
 from app.services.secretary_tools import SecretaryTools
 from app.services.pii_service import PIIService
+from app.services.pii.session import PIISession
 from app.services.tools_definition import SECRETARY_TOOLS_DEFINITION
 from app.models.google_account import GoogleAccount
 
@@ -44,7 +45,7 @@ class SecretaryService:
         self.pii = PIIService()
 
     async def process_request(self, query: str, history: Optional[List[dict]] = None) -> str:
-        pii_mapping: Dict[str, str] = {}
+        pii_session = self.pii.create_session()
 
         # 1) Mask history
         masked_history: List[dict] = []
@@ -54,14 +55,13 @@ class SecretaryService:
                 role = msg.get("role", None)
                 content = msg.get("content", None)
                 if isinstance(content, str):
-                    masked_content, pii_mapping = self.pii.mask(content, mapping=pii_mapping)
-                    masked_history.append({"role": role or "user", "content": masked_content})
+                    masked_history.append({"role": role or "user", "content": self._mask_text(pii_session, content)})
                 else:
                     # якщо не str — залишаємо як є (або можеш конвертити під себе)
                     masked_history.append(msg)
 
         # 2) Mask current query
-        masked_query, pii_mapping = self.pii.mask(query, mapping=pii_mapping)
+        masked_query = self._mask_text(pii_session, query)
 
         # 3) Tools
         tools = SECRETARY_TOOLS_DEFINITION
@@ -95,7 +95,7 @@ IMPORTANT:
                 masked_history=masked_history,
                 masked_query=masked_query,
                 tools=tools,
-                pii_mapping=pii_mapping,
+                pii_session=pii_session,
                 max_turns=max_turns,
             )
         else:
@@ -105,7 +105,7 @@ IMPORTANT:
                 masked_history=masked_history,
                 masked_query=masked_query,
                 tools=tools,
-                pii_mapping=pii_mapping,
+                pii_session=pii_session,
                 max_turns=max_turns,
             )
 
@@ -119,7 +119,7 @@ IMPORTANT:
         masked_history: List[dict],
         masked_query: str,
         tools: List[dict],
-        pii_mapping: Dict[str, str],
+        pii_session: PIISession,
         max_turns: int,
     ) -> str:
         messages: List[dict] = [{"role": "system", "content": system_prompt}]
@@ -153,7 +153,7 @@ IMPORTANT:
 
             # no tools -> final
             if not tool_calls:
-                final = self.pii.unmask(message_content, pii_mapping) if message_content else "I'm done."
+                final = self._unmask_text(pii_session, message_content) if message_content else "I'm done."
                 return final
 
             # Execute tools
@@ -170,16 +170,13 @@ IMPORTANT:
                     args = {}
 
                 # unmask args
-                args = self._unmask_structure(args, pii_mapping)
+                args = self._unmask_structure(args, pii_session)
 
                 logger.info(f"Executing tool {fn_name} with args {args}")
                 res_text = await self._execute_tool(fn_name, args)
 
                 # mask tool result (same mapping)
-                if isinstance(res_text, str):
-                    masked_res, pii_mapping = self.pii.mask(res_text, mapping=pii_mapping)
-                else:
-                    masked_res = str(res_text)
+                masked_res = self._mask_tool_result(pii_session, res_text)
 
                 tool_results.append(
                     {
@@ -192,7 +189,7 @@ IMPORTANT:
             messages.extend(tool_results)
 
         final_msg = "I reached the maximum number of steps and couldn't finish the task."
-        return self.pii.unmask(final_msg, pii_mapping)
+        return self._unmask_text(pii_session, final_msg)
 
     # -------------------------
     # Responses API loop
@@ -204,7 +201,7 @@ IMPORTANT:
         masked_history: List[dict],
         masked_query: str,
         tools: List[dict],
-        pii_mapping: Dict[str, str],
+        pii_session: PIISession,
         max_turns: int,
     ) -> str:
         # 1) Зроби baseline messages (тільки валідні ролі)
@@ -243,7 +240,7 @@ IMPORTANT:
             content = resp.content or ""
 
             if not tool_calls:
-                return self.pii.unmask(content, pii_mapping) if content else "I'm done."
+                return self._unmask_text(pii_session, content) if content else "I'm done."
 
             # 2) Виконуємо tools і готуємо ТІЛЬКИ tool messages для наступного виклику
             tool_msgs: List[dict] = []
@@ -258,15 +255,12 @@ IMPORTANT:
                 except Exception:
                     args = {}
 
-                args = self._unmask_structure(args, pii_mapping)
+                args = self._unmask_structure(args, pii_session)
 
                 logger.info(f"Executing tool {fn_name} with args {args}")
                 res_text = await self._execute_tool(fn_name, args)
 
-                if isinstance(res_text, str):
-                    masked_res, pii_mapping = self.pii.mask(res_text, mapping=pii_mapping)
-                else:
-                    masked_res = str(res_text)
+                masked_res = self._mask_tool_result(pii_session, res_text)
 
                 tool_msgs.append(
                     {
@@ -280,7 +274,7 @@ IMPORTANT:
             msgs_for_call = tool_msgs
 
         final_msg = "I reached the maximum number of steps and couldn't finish the task."
-        return self.pii.unmask(final_msg, pii_mapping)
+        return self._unmask_text(pii_session, final_msg)
 
 
     # -------------------------
@@ -404,13 +398,24 @@ IMPORTANT:
         # fallback
         return {"id": None, "call_id": None, "name": None, "arguments": "{}"}
 
-    def _unmask_structure(self, value: Any, mapping: Dict[str, str]) -> Any:
+    def _mask_text(self, pii_session: PIISession, text: str) -> str:
+        return pii_session.mask_text(text or "")
+
+    def _unmask_text(self, pii_session: PIISession, text: str) -> str:
+        return pii_session.unmask_text(text or "")
+
+    def _mask_tool_result(self, pii_session: PIISession, result: Any) -> str:
+        if isinstance(result, str):
+            return self._mask_text(pii_session, result)
+        return str(result)
+
+    def _unmask_structure(self, value: Any, pii_session: PIISession) -> Any:
         if isinstance(value, str):
-            return self.pii.unmask(value, mapping)
+            return self._unmask_text(pii_session, value)
         if isinstance(value, list):
-            return [self._unmask_structure(v, mapping) for v in value]
+            return [self._unmask_structure(v, pii_session) for v in value]
         if isinstance(value, dict):
-            return {k: self._unmask_structure(v, mapping) for k, v in value.items()}
+            return {k: self._unmask_structure(v, pii_session) for k, v in value.items()}
         return value
 
     async def get_connected_accounts(self) -> Dict[str, List[Any]]:

@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     EVENING_DIGEST_HOUR: int = 19
     EVENING_DIGEST_MINUTE: int = 0
 
+    # PII engine flags
+    PII_V2_ENABLED: bool = True
+    PII_TOKEN_FORMAT: str = "v2"
+    PII_CONTEXTUAL_NUMERIC_IDS: bool = True
+    PII_STREAM_BUFFERING: bool = True
+
     model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache

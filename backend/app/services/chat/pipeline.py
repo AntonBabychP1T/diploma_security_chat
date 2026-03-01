@@ -126,13 +126,18 @@ class ChatPipeline:
                     continue
 
                 full_chunks.append(delta)
-                unmasked_delta = await self.pii_middleware.unmask(delta)
-                yield f"data: {json.dumps({'delta': unmasked_delta}, ensure_ascii=False)}\n\n"
+                unmasked_delta = await self.pii_middleware.unmask_chunk(delta)
+                if unmasked_delta:
+                    yield f"data: {json.dumps({'delta': unmasked_delta}, ensure_ascii=False)}\n\n"
         finally:
             try:
                 await stream.aclose()
             except Exception:
                 pass
+
+            tail = await self.pii_middleware.flush_unmask_tail()
+            if tail:
+                yield f"data: {json.dumps({'delta': tail}, ensure_ascii=False)}\n\n"
 
             full_raw = "".join(full_chunks)
             final_content = await self.pii_middleware.unmask(full_raw)

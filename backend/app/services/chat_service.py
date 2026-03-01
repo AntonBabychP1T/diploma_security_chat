@@ -213,10 +213,10 @@ class ChatService:
         context_messages = history[-5:]
         
         masked_messages = []
-        combined_mapping = {}
         
         # Need PIIService
         pii_service = self.pipeline.pii_middleware.pii_service if self.pipeline else PIIService()
+        pii_session = pii_service.create_session()
         
         # Styles
         # I removed `self.styles` from ChatService.
@@ -229,7 +229,7 @@ class ChatService:
         masked_messages.append({"role": "system", "content": system_prompt})
 
         for msg in context_messages:
-            masked_content, combined_mapping = await asyncio.to_thread(pii_service.mask, msg.content, combined_mapping)
+            masked_content = await asyncio.to_thread(pii_session.mask_text, msg.content)
             masked_messages.append({"role": msg.role, "content": masked_content})
 
         # 3. Parallel LLM Calls
@@ -270,7 +270,7 @@ class ChatService:
                 meta = {"error": str(res)}
             else:
                 raw_content = res.content or ""
-                content = await asyncio.to_thread(pii_service.unmask, raw_content, combined_mapping) or raw_content
+                content = await asyncio.to_thread(pii_session.unmask_text, raw_content) or raw_content
                 meta = res.meta_data or {}
             
             meta.update({

@@ -20,7 +20,7 @@ def test_masking():
     print(f"Unmasked: {unmasked}")
     
     assert "test@example.com" not in masked
-    assert "{{EMAIL_1}}" in masked
+    assert any(value == "test@example.com" for value in mapping.values())
     assert unmasked == text
     print("Test Passed!")
 
