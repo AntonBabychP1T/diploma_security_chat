@@ -5,6 +5,7 @@ from app.services.notification_service import NotificationService
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.core.config import get_settings
+from app.core.vapid import resolve_vapid_public_key
 import logging
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -13,9 +14,13 @@ settings = get_settings()
 
 @router.get("/vapid-public-key")
 async def get_vapid_public_key():
-    if not settings.VAPID_PUBLIC_KEY:
+    public_key = resolve_vapid_public_key(
+        configured_public_key=settings.VAPID_PUBLIC_KEY,
+        private_key=settings.VAPID_PRIVATE_KEY,
+    )
+    if not public_key:
         raise HTTPException(status_code=500, detail="VAPID public key not configured")
-    return {"publicKey": settings.VAPID_PUBLIC_KEY}
+    return {"publicKey": public_key}
 
 @router.post("/subscribe")
 async def subscribe(

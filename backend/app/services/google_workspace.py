@@ -83,17 +83,19 @@ class GoogleWorkspaceClient:
                 snippet=snippet,
                 date=datetime.fromtimestamp(internal_date),
                 is_read=is_read,
-                link=f"https://mail.google.com/mail/u/0/#inbox/{data['id']}"
+                link=f"https://mail.google.com/mail/u/0/#inbox/{data['id']}",
+                label_ids=label_ids,
             )
         except Exception:
             return None
 
-    async def list_events(self, time_min: datetime, time_max: datetime) -> List[CalendarEvent]:
+    async def list_events(self, time_min: datetime, time_max: datetime, include_cancelled: bool = False) -> List[CalendarEvent]:
         params = {
             "timeMin": time_min.isoformat() + "Z", # Ensure UTC
             "timeMax": time_max.isoformat() + "Z",
             "singleEvents": "true",
-            "orderBy": "startTime"
+            "orderBy": "startTime",
+            "showDeleted": "true" if include_cancelled else "false",
         }
         
         async with httpx.AsyncClient() as client:
@@ -104,8 +106,8 @@ class GoogleWorkspaceClient:
             
             events = []
             for item in items:
-                # Skip cancelled
-                if item.get("status") == "cancelled":
+                # Skip cancelled unless explicitly requested.
+                if item.get("status") == "cancelled" and not include_cancelled:
                     continue
                     
                 start = item.get("start", {})
@@ -128,9 +130,19 @@ class GoogleWorkspaceClient:
                     location=item.get("location"),
                     description=item.get("description"),
                     html_link=item.get("htmlLink"),
-                    attendees=attendees
+                    attendees=attendees,
+                    status=item.get("status", "confirmed"),
+                    updated=self._parse_event_updated(item.get("updated")),
                 ))
             return events
+
+    def _parse_event_updated(self, updated_value: Optional[str]) -> Optional[datetime]:
+        if not updated_value:
+            return None
+        try:
+            return datetime.fromisoformat(updated_value.replace("Z", "+00:00"))
+        except Exception:
+            return None
 
     def _parse_calendar_date(self, date_obj: Dict[str, Any]) -> Optional[datetime]:
         if "dateTime" in date_obj:
@@ -310,15 +322,30 @@ class GoogleWorkspaceClient:
             response.raise_for_status()
             return response.json()
 
-    async def delete_emails(self, message_ids: List[str]) -> Dict[str, Any]:
-        # Batch delete (trash)
-        payload = {
-            "ids": message_ids
-        }
+    async def delete_emails(self, message_ids: List[str], hard_delete: bool = False) -> Dict[str, Any]:
+        if not message_ids:
+            return {"status": "deleted", "count": 0}
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{self.GMAIL_API_URL}/messages/batchDelete", headers=self.headers, json=payload)
-            response.raise_for_status()
-            return {"status": "deleted", "count": len(message_ids)}
+            if hard_delete:
+                payload = {"ids": message_ids}
+                response = await client.post(
+                    f"{self.GMAIL_API_URL}/messages/batchDelete",
+                    headers=self.headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return {"status": "deleted", "count": len(message_ids)}
+
+            # Soft delete/archive: remove message from INBOX.
+            for message_id in message_ids:
+                modify_response = await client.post(
+                    f"{self.GMAIL_API_URL}/messages/{message_id}/modify",
+                    headers=self.headers,
+                    json={"removeLabelIds": ["INBOX"], "addLabelIds": []},
+                )
+                modify_response.raise_for_status()
+            return {"status": "archived", "count": len(message_ids)}
 
     async def modify_email_labels(self, message_id: str, add_labels: Optional[List[str]] = None, remove_labels: Optional[List[str]] = None) -> Dict[str, Any]:
         """

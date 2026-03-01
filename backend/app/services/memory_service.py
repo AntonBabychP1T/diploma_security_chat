@@ -105,6 +105,12 @@ class MemoryService:
         )
         return result.scalars().all()
 
+    async def get_memory_by_id(self, memory_id: int) -> Optional[Memory]:
+        result = await self.db.execute(
+            select(Memory).where(Memory.id == memory_id, Memory.user_id == self.user_id)
+        )
+        return result.scalar_one_or_none()
+
     async def add_memory(self, category: str, key: str, value: Any, confidence: float = 0.7) -> Memory:
         """Upsert memory by (user_id, category, key) to avoid duplicates and keep values short."""
         # Normalize value to short string

@@ -18,6 +18,7 @@ class EmailMessage(BaseModel):
     date: datetime
     is_read: bool
     link: Optional[str] = None
+    label_ids: List[str] = []
 
 class CalendarEvent(BaseModel):
     id: str
@@ -28,6 +29,8 @@ class CalendarEvent(BaseModel):
     description: Optional[str] = None
     html_link: Optional[str] = None
     attendees: List[str] = []
+    status: str = "confirmed"
+    updated: Optional[datetime] = None
 
 class TimeSlot(BaseModel):
     start: datetime

@@ -21,7 +21,7 @@ def generate_vapid_keys():
 
     print("VAPID_PRIVATE_KEY=" + private_b64)
     print("VAPID_PUBLIC_KEY=" + public_b64)
-    print("VAPID_CLAIM_EMAIL=mailto:your-email@example.com")
+    print("VAPID_CLAIM_EMAIL=your-email@example.com")
 
 if __name__ == "__main__":
     generate_vapid_keys()

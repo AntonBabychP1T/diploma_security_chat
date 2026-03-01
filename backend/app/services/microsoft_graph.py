@@ -72,7 +72,7 @@ class MicrosoftGraphClient:
         params = {
             "startDateTime": time_min.isoformat() + "Z",
             "endDateTime": time_max.isoformat() + "Z",
-            "$select": "id,subject,start,end,location,bodyPreview,webLink,attendees",
+            "$select": "id,subject,start,end,location,bodyPreview,webLink,attendees,lastModifiedDateTime,showAs",
             "$orderby": "start/dateTime"
         }
         
@@ -109,7 +109,9 @@ class MicrosoftGraphClient:
             location=item.get("location", {}).get("displayName"),
             description=item.get("bodyPreview"),
             html_link=item.get("webLink"),
-            attendees=attendees
+            attendees=attendees,
+            status=item.get("showAs", "confirmed"),
+            updated=datetime.fromisoformat(item["lastModifiedDateTime"].replace("Z", "+00:00")) if item.get("lastModifiedDateTime") else None,
         )
 
     async def find_free_slots(self, time_min: datetime, time_max: datetime, duration_minutes: int = 30) -> List[TimeSlot]:
@@ -143,6 +145,7 @@ class MicrosoftGraphClient:
                     end=time_max,
                     duration_minutes=int(gap.total_seconds() / 60)
                 ))
+        return slots
                 
     async def get_email(self, message_id: str) -> Optional[EmailMessage]:
         try:

@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str | None = None
     VAPID_CLAIM_EMAIL: str | None = None
 
+    # Scheduler / digest automation
+    SCHEDULER_TIMEZONE: str = "Europe/Kyiv"
+    POLL_INTERVAL_MINUTES: int = 60
+    MORNING_DIGEST_HOUR: int = 9
+    MORNING_DIGEST_MINUTE: int = 0
+    EVENING_DIGEST_HOUR: int = 19
+    EVENING_DIGEST_MINUTE: int = 0
+
     model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache

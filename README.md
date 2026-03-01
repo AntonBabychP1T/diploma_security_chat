@@ -116,3 +116,21 @@
 
 ---
 *Розроблено в рамках дипломного проекту.*
+
+## Worker runtime
+
+Run backend API and worker as separate processes:
+
+```bash
+# Terminal 1
+uvicorn app.main:app --reload
+
+# Terminal 2
+python -m app.worker
+```
+
+Worker scheduler configuration is read from `.env`:
+- `SCHEDULER_TIMEZONE`
+- `POLL_INTERVAL_MINUTES`
+- `MORNING_DIGEST_HOUR`, `MORNING_DIGEST_MINUTE`
+- `EVENING_DIGEST_HOUR`, `EVENING_DIGEST_MINUTE`

@@ -1,11 +1,18 @@
 import logging
 import json
-from pywebpush import webpush, WebPushException
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.notification_models import PushSubscription
 from app.core.config import get_settings
+
+try:
+    from pywebpush import webpush, WebPushException
+except ImportError:  # pragma: no cover - fallback for environments without push deps
+    webpush = None
+
+    class WebPushException(Exception):
+        pass
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -18,9 +25,14 @@ class NotificationService:
         """
         Sends a push notification to all active subscriptions of the user.
         """
+        if webpush is None:
+            logger.warning("pywebpush is not installed, skipping push notification.")
+            return
         if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_CLAIM_EMAIL:
             logger.warning("VAPID keys not configured, skipping push notification.")
             return
+        claim = settings.VAPID_CLAIM_EMAIL
+        claim_sub = claim if claim.startswith("mailto:") else f"mailto:{claim}"
 
         stmt = select(PushSubscription).where(PushSubscription.user_id == user_id, PushSubscription.revoked_at.is_(None))
         result = await self.db.execute(stmt)
@@ -57,7 +69,7 @@ class NotificationService:
                     subscription_info=subscription_info,
                     data=payload,
                     vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                    vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"}
+                    vapid_claims={"sub": claim_sub}
                 )
                 
                 await asyncio.get_event_loop().run_in_executor(None, send_push)

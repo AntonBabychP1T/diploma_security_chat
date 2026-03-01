@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.schemas.memory import Memory as MemorySchema, MemoryCreate
 from app.services.memory_service import MemoryService
+from app.services.memory_change_notifier import MemoryChangeNotifier
 from app.models.user import User
 
 router = APIRouter(prefix="/memories", tags=["memories"])
@@ -27,12 +28,18 @@ async def create_memory(
     current_user: User = Depends(get_current_user)
 ):
     service = MemoryService(db, user_id=current_user.id)
-    return await service.add_memory(
+    memory = await service.add_memory(
         category=payload.category,
         key=payload.key,
         value=payload.value,
         confidence=payload.confidence or 0.7
     )
+    try:
+        await MemoryChangeNotifier(db, current_user.id).notify(action="create", memory=memory)
+    except Exception:
+        # Memory CRUD should still succeed even if notifier fails.
+        pass
+    return memory
 
 
 @router.delete("/{memory_id}")
@@ -42,7 +49,12 @@ async def delete_memory(
     current_user: User = Depends(get_current_user)
 ):
     service = MemoryService(db, user_id=current_user.id)
+    existing = await service.get_memory_by_id(memory_id)
     success = await service.delete_memory(memory_id)
     if not success:
         raise HTTPException(status_code=404, detail="Memory not found")
+    try:
+        await MemoryChangeNotifier(db, current_user.id).notify(action="delete", memory=existing)
+    except Exception:
+        pass
     return {"status": "ok"}

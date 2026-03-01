@@ -1,11 +1,9 @@
 import logging
-import json
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.digest_models import ActionProposal, ActionType, ActionStatus
 from app.services.google_workspace import GoogleWorkspaceClient
-from app.services.google_auth_service import GoogleAuthService
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +26,7 @@ class ActionExecutor:
             return False
 
         # If already executed, skip? Or re-try if failed?
-        if action.status == ActionStatus.EXECUTED:
+        if str(action.status) in {ActionStatus.EXECUTED.value, str(ActionStatus.EXECUTED)}:
             logger.info(f"Action {action_id} already executed.")
             return True
 
@@ -38,28 +36,25 @@ class ActionExecutor:
         
         try:
             payload = action.payload_json
-            
-            if action.type == ActionType.ARCHIVE_PROMO:
+            action_type = str(action.type)
+            if action_type == ActionType.ARCHIVE_PROMO.value:
                 message_ids = payload.get("message_ids", [])
                 if message_ids:
                     # Remove INBOX label
                     for msg_id in message_ids:
                         await client.modify_email_labels(msg_id, remove_labels=["INBOX"])
-                
-            elif action.type == ActionType.CREATE_DRAFT:
-                # We need to construct a draft. 
-                # GoogleWorkspaceClient doesn't have create_draft yet, only send_email.
-                # But creating a draft is similar to sending, just different endpoint: /drafts
-                # We can implement a helper or do it here if simple. 
-                # Let's add create_draft to GoogleWorkspaceClient later or use raw httpx here?
-                # Better to keep it in GoogleWorkspaceClient.
-                # For now, let's assume Client has create_draft (I need to add it).
-                
-                # Wait, I didn't add create_draft to GoogleWorkspaceClient yet.
-                # I should add it.
-                pass 
-
-            elif action.type == ActionType.CREATE_EVENT:
+            elif action_type == ActionType.CREATE_DRAFT.value:
+                to_value = payload.get("to", [])
+                if isinstance(to_value, str):
+                    to = [to_value]
+                else:
+                    to = [item for item in to_value if isinstance(item, str)]
+                subject = payload.get("subject", "")
+                body = payload.get("body", "")
+                if not to:
+                    raise ValueError("CREATE_DRAFT action is missing recipients.")
+                await client.create_draft(to=to, subject=subject, body=body)
+            elif action_type == ActionType.CREATE_EVENT.value:
                 summary = payload.get("summary")
                 start_time_str = payload.get("start_time")
                 end_time_str = payload.get("end_time")
@@ -69,15 +64,19 @@ class ActionExecutor:
                     start_dt = datetime.fromisoformat(start_time_str)
                     end_dt = datetime.fromisoformat(end_time_str)
                     await client.create_event(summary, start_dt, end_dt, attendees)
+                else:
+                    raise ValueError("CREATE_EVENT action is missing summary/start/end values.")
+            else:
+                raise ValueError(f"Unsupported action type: {action.type}")
 
-            action.status = ActionStatus.EXECUTED
+            action.status = ActionStatus.EXECUTED.value
             action.executed_at = datetime.utcnow()
             await self.db.commit()
             return True
 
         except Exception as e:
             logger.error(f"Error executing action {action_id}: {e}")
-            action.status = ActionStatus.FAILED
+            action.status = ActionStatus.FAILED.value
             action.error = str(e)
             await self.db.commit()
             return False

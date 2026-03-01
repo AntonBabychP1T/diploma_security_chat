@@ -7,3 +7,4 @@ from .chat import Chat, Message
 from .memory import Memory
 from .digest_models import GmailSyncState, EmailSnapshot, DigestRun, ActionProposal, ActionStatus, ActionType
 from .notification_models import PushSubscription
+from .calendar_event_snapshot import CalendarEventSnapshot
