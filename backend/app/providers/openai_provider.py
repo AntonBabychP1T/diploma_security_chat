@@ -30,7 +30,7 @@ ToolRunner = Callable[[str, Dict[str, Any]], Awaitable[Union[str, Dict[str, Any]
 class OpenAIProvider(LLMProvider):
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.default_model = "gpt-5-mini"
+        self.default_model = "gpt-5.4-mini"
 
     # ----------------------------
     # Helpers: JSON-safe conversion

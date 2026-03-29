@@ -22,9 +22,9 @@ export const ChatPage: React.FC = () => {
     const [provider, setProvider] = useState("openai");
     const modelsByProvider: Record<string, { id: string; label: string; }[]> = {
         openai: [
-            { id: "gpt-5.1", label: "GPT 5.1" },
-            { id: "gpt-5-nano", label: "GPT 5 Nano" },
-            { id: "gpt-5-mini", label: "GPT 5 Mini" },
+            { id: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+            { id: "gpt-5.4", label: "GPT 5.4" },
+            { id: "gpt-5.4-nano", label: "GPT 5.4 Nano" },
         ],
         gemini: [
             { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
@@ -46,7 +46,7 @@ export const ChatPage: React.FC = () => {
 
     // Arena Mode State
     const [isArenaMode, setIsArenaMode] = useState(false);
-    const [arenaModelA, setArenaModelA] = useState(modelsByProvider["openai"][1].id); // Default to nano
+    const [arenaModelA, setArenaModelA] = useState("gpt-5.4-nano");
     const [arenaModelB, setArenaModelB] = useState(modelsByProvider["gemini"][0].id); // Default to flash
 
     useEffect(() => {

@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     DATABASE_URL: str = "sqlite+aiosqlite:///./chat.db"
     LOG_LEVEL: str = "INFO"
-    MEMORY_EXTRACT_MODEL: str = "gpt-5-mini"
-    MEMORY_INJECT_MODEL: str = "gpt-5-mini"
+    MEMORY_EXTRACT_MODEL: str = "gpt-5.4-mini"
+    MEMORY_INJECT_MODEL: str = "gpt-5.4-mini"
     OPENAI_MAX_COMPLETION_TOKENS: int = 2048
     MEMORY_EXTRACT_MAX_TOKENS: int = 10000
     MEMORY_INJECT_MAX_TOKENS: int = 10000

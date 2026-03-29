@@ -358,7 +358,7 @@ class DigestEngine:
         try:
             response = await self.provider.generate(
                 [{"role": "user", "content": prompt}],
-                options={"model": "gpt-5-mini", "response_format": {"type": "json_object"}},
+                options={"model": "gpt-5.4-mini", "response_format": {"type": "json_object"}},
             )
             payload = json.loads(response.content or "{}")
             output: Dict[str, Dict[str, Any]] = {}

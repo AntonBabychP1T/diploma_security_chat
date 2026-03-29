@@ -84,7 +84,7 @@ IMPORTANT:
 """
 
         # 5) Model selection (якщо в тебе є SECRETARY_MODEL у settings — використовуй його)
-        model = getattr(settings, "SECRETARY_MODEL", None) or "gpt-5-mini"
+        model = getattr(settings, "SECRETARY_MODEL", None) or "gpt-5.4-mini"
         caps = ModelRegistry.get_capabilities(model)
         max_turns = getattr(settings, "SECRETARY_MAX_TURNS", 5)
 

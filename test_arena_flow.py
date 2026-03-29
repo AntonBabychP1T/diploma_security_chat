@@ -39,7 +39,7 @@ def test_arena_flow():
     print("Sending arena message...")
     payload = {
         "message": "Hello, arena!",
-        "models": ["gpt-5-mini", "gemini-2.5-flash"]
+        "models": ["gpt-5.4-mini", "gemini-2.5-flash"]
     }
     msg_res = requests.post(f"{BASE_URL}/chats/{chat_id}/messages", json=payload, headers=headers)
     assert msg_res.status_code == 200
