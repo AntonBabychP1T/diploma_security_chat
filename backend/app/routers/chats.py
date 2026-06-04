@@ -61,6 +61,7 @@ async def send_message(chat_id: int, request: ChatRequest, background_tasks: Bac
             assistant_messages = await service.send_arena_message(
                 chat_id=chat_id,
                 content=request.message,
+                providers=request.providers,
                 models=request.models,
                 style=request.style or "default"
             )

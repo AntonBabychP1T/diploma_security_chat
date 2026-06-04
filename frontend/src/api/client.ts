@@ -99,6 +99,7 @@ export interface ChatRequest {
     style?: string;
     provider?: string;
     model?: string;
+    providers?: string[];
     models?: string[];
     attachments?: Attachment[];
 }

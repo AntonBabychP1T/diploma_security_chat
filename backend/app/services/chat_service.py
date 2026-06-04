@@ -161,7 +161,14 @@ class ChatService:
         await self.db.refresh(msg)
         return msg
 
-    async def send_arena_message(self, chat_id: int, content: str, models: List[str], style: str = "default") -> List[Message]:
+    async def send_arena_message(
+        self,
+        chat_id: int,
+        content: str,
+        models: List[str],
+        style: str = "default",
+        providers: Optional[List[str]] = None
+    ) -> List[Message]:
         # Arena logic is distinct, parallel execution.
         # Ideally, we should reuse pipeline components (masking, etc.) but orchestration is different.
         # For this refactor, let's keep it here or eventually move to `ArenaPipeline`.
@@ -239,15 +246,20 @@ class ChatService:
         from app.core.config import get_settings
         settings = get_settings()
         provider_factory = ProviderFactory()
+        selected_providers = []
         
-        for model_id in models:
-            if "gpt" in model_id:
+        for index, model_id in enumerate(models):
+            explicit_provider = providers[index] if providers and index < len(providers) else None
+            if explicit_provider:
+                provider_name = explicit_provider
+            elif "gpt" in model_id:
                 provider_name = "openai"
             elif "gemini" in model_id:
                 provider_name = "gemini"
             else:
                 provider_name = "openai" # Fallback
 
+            selected_providers.append(provider_name)
             provider = provider_factory.get_provider(provider_name)
             tasks.append(
                 provider.generate(
@@ -264,6 +276,7 @@ class ChatService:
         assistant_messages = []
         for i, res in enumerate(results):
             model_id = models[i]
+            provider_name = selected_providers[i]
             if isinstance(res, Exception):
                 logger.error(f"Arena error for {model_id}: {res}")
                 content = f"Error generating response from {model_id}"
@@ -275,6 +288,7 @@ class ChatService:
             
             meta.update({
                 "comparison_id": comparison_id,
+                "provider": provider_name,
                 "model": model_id,
                 "is_arena": True,
                 "style": style

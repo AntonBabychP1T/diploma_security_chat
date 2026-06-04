@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { api } from '../api/client';
-import { Check, X, Loader2, Calendar, Archive, FileText, ChevronRight } from 'lucide-react';
-import clsx from 'clsx';
+import { Check, Loader2, Calendar, Archive, FileText, ChevronRight } from 'lucide-react';
 
 interface ActionPayload {
     type: "ARCHIVE_PROMO" | "CREATE_DRAFT" | "CREATE_EVENT";
     payload_json: any;
+    payload?: any;
     id: number;
     status: string; // PENDING, EXECUTED, etc.
 }
@@ -30,14 +30,14 @@ export const ActionCard: React.FC<Props> = ({ action, onExecuted }) => {
             if (onExecuted) onExecuted();
         } catch (err: any) {
             console.error("Action execution failed", err);
-            setError("Failed to execute");
+            setError("Не вдалося виконати дію");
         } finally {
             setExecuting(false);
         }
     };
 
     const renderContent = () => {
-        const { type, payload } = action; // payload is actually inside payload_json usually, but check data structure
+        const { type } = action;
         // Wait, metadata.actions has "payload" which IS the payload_json
         const data = action.payload_json || action.payload || {}; // Handle both cases if inconsistency
 
@@ -62,7 +62,7 @@ export const ActionCard: React.FC<Props> = ({ action, onExecuted }) => {
                         </div>
                         <div>
                             <p className="font-medium text-gray-200">Створити чернетку</p>
-                            <p className="text-xs text-gray-500 line-clamp-1">To: {data.to} • Subj: {data.subject}</p>
+                            <p className="text-xs text-gray-500 line-clamp-1">Кому: {data.to} • Тема: {data.subject}</p>
                         </div>
                     </div>
                 );
@@ -79,7 +79,7 @@ export const ActionCard: React.FC<Props> = ({ action, onExecuted }) => {
                     </div>
                 );
             default:
-                return <p>Unknown Action: {type}</p>;
+                return <p>Невідома дія: {type}</p>;
         }
     };
 
@@ -91,7 +91,7 @@ export const ActionCard: React.FC<Props> = ({ action, onExecuted }) => {
                 {status === 'EXECUTED' ? (
                     <div className="flex items-center gap-1 text-green-400 text-xs font-medium px-2 py-1 bg-green-500/10 rounded-lg">
                         <Check size={14} />
-                        <span>Done</span>
+                        <span>Готово</span>
                     </div>
                 ) : (
                     <button
@@ -100,7 +100,7 @@ export const ActionCard: React.FC<Props> = ({ action, onExecuted }) => {
                         className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
                     >
                         {executing ? <Loader2 size={14} className="animate-spin" /> : <ChevronRight size={14} />}
-                        <span>Do it</span>
+                        <span>Виконати</span>
                     </button>
                 )}
             </div>

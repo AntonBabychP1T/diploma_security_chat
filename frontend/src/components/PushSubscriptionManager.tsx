@@ -17,7 +17,7 @@ export const PushSubscriptionManager: React.FC = () => {
     useEffect(() => {
         checkSubscription().catch((e) => {
             console.error("checkSubscription failed:", e);
-            setError("Failed to initialize push subscription state.");
+            setError("Не вдалося ініціалізувати стан push-підписки.");
         });
     }, []);
 
@@ -49,7 +49,7 @@ export const PushSubscriptionManager: React.FC = () => {
 
     const ensureServiceWorker = async (): Promise<ServiceWorkerRegistration> => {
         if (!("serviceWorker" in navigator)) {
-            throw new Error("Service Worker not supported");
+            throw new Error("Service Worker не підтримується");
         }
 
         // If already registered, use it; otherwise register.
@@ -63,7 +63,7 @@ export const PushSubscriptionManager: React.FC = () => {
 
     const checkSubscription = async () => {
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-            setError("Push notifications not supported");
+            setError("Push-сповіщення не підтримуються");
             return;
         }
 
@@ -79,7 +79,7 @@ export const PushSubscriptionManager: React.FC = () => {
 
         try {
             if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                throw new Error("Push notifications not supported");
+                throw new Error("Push-сповіщення не підтримуються");
             }
 
             const registration = await ensureServiceWorker();
@@ -89,7 +89,7 @@ export const PushSubscriptionManager: React.FC = () => {
             const publicKey = sanitizePublicKey(resKey?.data?.publicKey);
 
             if (!publicKey) {
-                throw new Error("VAPID public key is missing/empty after sanitize.");
+                throw new Error("Публічний ключ VAPID відсутній або порожній після очищення.");
             }
 
             const convertedVapidKey = urlBase64ToUint8Array(publicKey);
@@ -101,8 +101,8 @@ export const PushSubscriptionManager: React.FC = () => {
 
             if (convertedVapidKey.length !== 65 || convertedVapidKey[0] !== 4) {
                 throw new Error(
-                    `Invalid VAPID public key. Expected 65 bytes starting with 0x04. ` +
-                    `Got length=${convertedVapidKey.length}, firstByte=${convertedVapidKey[0]}.`
+                    `Некоректний публічний ключ VAPID. Очікується 65 байтів, що починаються з 0x04. ` +
+                    `Отримано length=${convertedVapidKey.length}, firstByte=${convertedVapidKey[0]}.`
                 );
             }
 
@@ -113,7 +113,7 @@ export const PushSubscriptionManager: React.FC = () => {
                 // If you prefer, re-send existing to backend:
                 await api.post(SUBSCRIBE_URL, existingSub.toJSON());
                 setIsSubscribed(true);
-                setMessage("Notifications already enabled (subscription refreshed).");
+                setMessage("Сповіщення вже увімкнено (підписку оновлено).");
                 return;
             }
 
@@ -125,10 +125,10 @@ export const PushSubscriptionManager: React.FC = () => {
             await api.post(SUBSCRIBE_URL, subscription.toJSON());
 
             setIsSubscribed(true);
-            setMessage("Notifications enabled!");
+            setMessage("Сповіщення увімкнено!");
         } catch (err: any) {
             console.error("Subscription failed", err);
-            setError("Failed to subscribe: " + (err?.message || String(err)));
+            setError("Не вдалося підписатися: " + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }
@@ -143,7 +143,7 @@ export const PushSubscriptionManager: React.FC = () => {
             const registration = await navigator.serviceWorker.getRegistration();
             if (!registration) {
                 setIsSubscribed(false);
-                setMessage("Notifications disabled.");
+                setMessage("Сповіщення вимкнено.");
                 return;
             }
 
@@ -153,16 +153,16 @@ export const PushSubscriptionManager: React.FC = () => {
             }
 
             setIsSubscribed(false);
-            setMessage("Notifications disabled.");
+            setMessage("Сповіщення вимкнено.");
         } catch (err: any) {
             console.error("Unsubscribe failed", err);
-            setError("Failed to unsubscribe: " + (err?.message || String(err)));
+            setError("Не вдалося скасувати підписку: " + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }
     };
 
-    if (error === "Push notifications not supported") {
+    if (error === "Push-сповіщення не підтримуються") {
         return null;
     }
 
