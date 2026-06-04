@@ -16,10 +16,10 @@ def test_v2_mask_and_legacy_unmask_compat():
     assert "test@example.com" not in masked
     assert mapping
 
-    # Legacy placeholder remains unmaskable for backward compatibility.
-    legacy = "EMAIL_1 and {{EMAIL_1}} and PII:EMAIL:0001"
+    # Legacy and model-normalized placeholders remain unmaskable for compatibility.
+    legacy = "EMAIL_1 and {{EMAIL_1}} and PII:EMAIL:0001 and <PII:EMAIL:0001>"
     unmasked = pii.unmask(legacy, mapping)
-    assert unmasked.count("test@example.com") == 3
+    assert unmasked.count("test@example.com") == 4
 
 
 def test_precision_false_positive_controls():
@@ -48,6 +48,52 @@ def test_card_luhn_validation():
     assert "4242 4242 4242 4242" not in valid_masked
 
 
+def test_ukrainian_bank_request_masks_contextual_pii():
+    pii = PIIService(token_format="v2", pii_v2_enabled=True, contextual_numeric_ids=True)
+    name = "\u0410\u043d\u0442\u043e\u043d \u0411\u0430\u0431\u0438\u0447"
+    address = (
+        "\u043c. \u041a\u0438\u0457\u0432, \u0432\u0443\u043b. "
+        "\u0410\u043d\u0442\u043e\u043d\u043e\u0432\u0438\u0447\u0430, "
+        "\u0431\u0443\u0434. 72, \u043a\u0432. 18"
+    )
+    rnokpp_label = "\u0420\u041d\u041e\u041a\u041f\u041f"
+    id_card_label = "ID-\u043a\u0430\u0440\u0442\u043a\u0438"
+    text = (
+        f"Person: {name}. Address: {address}. Phone: +380 67 245 81 39. "
+        "Email: antonbabych03@gmail.com. At 09:42 card 4111 1111 1111 1111 "
+        f"IBAN UA213223130000026007233566001. {rnokpp_label} 3184512769, "
+        f"number {id_card_label} 004582731."
+    )
+
+    masked, mapping = pii.mask(text)
+    mapped_types = {token.split(":")[1] for token in mapping}
+
+    assert {
+        "PERSON",
+        "ADDRESS",
+        "PHONE",
+        "EMAIL",
+        "TIME",
+        "CARD",
+        "IBAN",
+        "RNOKPP",
+        "PASSPORT_ID",
+    }.issubset(mapped_types)
+    for value in (
+        name,
+        address,
+        "+380 67 245 81 39",
+        "antonbabych03@gmail.com",
+        "09:42",
+        "4111 1111 1111 1111",
+        "UA213223130000026007233566001",
+        "3184512769",
+        "004582731",
+    ):
+        assert value not in masked
+    assert pii.unmask(masked, mapping) == text
+
+
 def test_stream_unmask_with_split_token():
     pii = PIIService(token_format="v2", pii_v2_enabled=True)
     _, mapping = pii.mask("Reach me at test@example.com")
@@ -64,6 +110,20 @@ def test_stream_unmask_with_split_token():
 
     assert token not in full
     assert full == "Hello test@example.com world"
+
+
+def test_stream_unmask_with_single_angle_v2_token():
+    pii = PIIService(token_format="v2", pii_v2_enabled=True)
+    _, mapping = pii.mask("Reach me at test@example.com")
+
+    session = pii.create_session(mapping=mapping)
+    part1 = session.unmask_chunk("Email: <PII:EMAIL")
+    part2 = session.unmask_chunk(":0001>.")
+    tail = session.flush_unmask_tail()
+    full = part1 + part2 + tail
+
+    assert "<PII:EMAIL:0001>" not in full
+    assert full == "Email: test@example.com."
 
 
 @pytest.mark.asyncio

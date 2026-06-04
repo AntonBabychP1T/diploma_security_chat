@@ -8,6 +8,7 @@ TOKEN_FORMAT_V2 = "v2"
 
 _TOKEN_V1_RE = re.compile(r"^\{\{([A-Z0-9_]+)_(\d+)\}\}$")
 _TOKEN_V2_RE = re.compile(r"^<<PII:([A-Z0-9_]+):(\d{1,4})>>$")
+_TOKEN_V2_SINGLE_RE = re.compile(r"^<PII:([A-Z0-9_]+):(\d{1,4})>$")
 _TOKEN_V1_BARE_RE = re.compile(r"^([A-Z0-9_]+)_(\d+)$")
 _TOKEN_V2_BARE_RE = re.compile(r"^PII:([A-Z0-9_]+):(\d{1,4})$")
 
@@ -30,6 +31,10 @@ def parse_token(token: str) -> Optional[Tuple[str, int]]:
         return None
 
     match = _TOKEN_V2_RE.match(token)
+    if match:
+        return match.group(1), int(match.group(2))
+
+    match = _TOKEN_V2_SINGLE_RE.match(token)
     if match:
         return match.group(1), int(match.group(2))
 
@@ -58,5 +63,6 @@ def token_variants(token: str) -> Set[str]:
     variants.add(f"{{{{{type_name}_{counter}}}}}")
     variants.add(f"{type_name}_{counter}")
     variants.add(f"<<PII:{type_name}:{counter:04d}>>")
+    variants.add(f"<PII:{type_name}:{counter:04d}>")
     variants.add(f"PII:{type_name}:{counter:04d}")
     return variants

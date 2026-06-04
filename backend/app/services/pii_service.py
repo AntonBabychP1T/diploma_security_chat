@@ -1,6 +1,18 @@
 import re
 from typing import Dict, Match, Optional, Tuple
 
+from app.services.pii.engine import PIIEngine
+from app.services.pii.session import PIISession
+
+
+def _settings_default(name: str, default):
+    try:
+        from app.core.config import get_settings
+
+        return getattr(get_settings(), name, default)
+    except Exception:
+        return default
+
 
 class PIIService:
     TOKEN_RE = re.compile(r"<([A-Z][A-Z0-9_]*_\d+)>|\{\{([A-Z][A-Z0-9_]*_\d+)\}\}")
@@ -99,11 +111,47 @@ class PIIService:
         ("PERSON", rf"(?<![\w<{{]){EN_NAME_WORD}(?:\s+{EN_NAME_WORD}){{1,2}}(?![\w>}}])", 0),
     ]
 
+    def __init__(
+        self,
+        token_format: Optional[str] = None,
+        pii_v2_enabled: Optional[bool] = None,
+        contextual_numeric_ids: Optional[bool] = None,
+        stream_buffering: Optional[bool] = None,
+    ):
+        self.token_format = token_format or _settings_default("PII_TOKEN_FORMAT", "v2")
+        self.pii_v2_enabled = (
+            pii_v2_enabled
+            if pii_v2_enabled is not None
+            else bool(_settings_default("PII_V2_ENABLED", True))
+        )
+        self.contextual_numeric_ids = (
+            contextual_numeric_ids
+            if contextual_numeric_ids is not None
+            else bool(_settings_default("PII_CONTEXTUAL_NUMERIC_IDS", True))
+        )
+        self.stream_buffering = (
+            stream_buffering
+            if stream_buffering is not None
+            else bool(_settings_default("PII_STREAM_BUFFERING", True))
+        )
+        self._engine = PIIEngine(contextual_numeric_ids=self.contextual_numeric_ids)
+
+    def create_session(self, mapping: Optional[Dict[str, str]] = None) -> PIISession:
+        return PIISession(
+            engine=self._engine,
+            token_format=self.token_format,
+            initial_mapping=mapping,
+        )
+
     def mask(self, text: str, mapping: Optional[Dict[str, str]] = None) -> Tuple[str, Dict[str, str]]:
         """
         Masks PII in the text and returns the masked text and a mapping of tokens to original values.
         Existing mapping values are reused to keep token numbering stable across a conversation.
         """
+        if self.pii_v2_enabled:
+            session = self.create_session(mapping=mapping)
+            return session.mask_text(text), session.export_mapping()
+
         if mapping is None:
             mapping = {}
         else:
@@ -146,6 +194,9 @@ class PIIService:
         Restores original values from tokens in the text.
         Handles <EMAIL_1>, legacy {{EMAIL_1}}, and bare EMAIL_1 variants.
         """
+        if self.pii_v2_enabled:
+            return self.create_session(mapping=mapping).unmask_text(text)
+
         if not text or not mapping:
             return text
 

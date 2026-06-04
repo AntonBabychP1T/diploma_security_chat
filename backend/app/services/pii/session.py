@@ -140,11 +140,16 @@ class PIISession:
             return "", ""
 
         bare_pos = text.rfind("PII:")
-        while bare_pos >= 2 and text[bare_pos - 2:bare_pos] == "<<":
+        while bare_pos >= 1 and text[bare_pos - 1] == "<":
             bare_pos = text.rfind("PII:", 0, bare_pos)
+
+        single_pos = text.rfind("<PII:")
+        while single_pos > 0 and text[single_pos - 1] == "<":
+            single_pos = text.rfind("<PII:", 0, single_pos)
 
         split_candidates = [
             (text.rfind("<<PII:"), "v2"),
+            (single_pos, "v2_single"),
             (text.rfind("{{"), "v1"),
             (bare_pos, "bare_v2"),
         ]
@@ -156,6 +161,11 @@ class PIISession:
         suffix = text[pos:]
         if marker == "v2":
             if ">>" in suffix:
+                return text, ""
+            return text[:pos], suffix
+
+        if marker == "v2_single":
+            if ">" in suffix:
                 return text, ""
             return text[:pos], suffix
 

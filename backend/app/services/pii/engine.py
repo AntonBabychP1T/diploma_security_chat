@@ -25,6 +25,25 @@ _ISO_COUNTRY_CODES = {
     "YE", "ZA", "ZM", "ZW",
 }
 
+_UA_UPPER = "\u0410-\u042f\u0406\u0407\u0404\u0490"
+_UA_LOWER = "\u0430-\u044f\u0456\u0457\u0454\u0491"
+_UA_LETTERS = f"{_UA_UPPER}{_UA_LOWER}"
+_UA_APOSTROPHES = "'\u2019"
+_UA_NAME_WORD = rf"[{_UA_UPPER}][{_UA_LOWER}]+(?:[-{_UA_APOSTROPHES}][{_UA_LETTERS}]+)*"
+_UA_STREET_TYPE = (
+    r"(?:\u0432\u0443\u043b\.?|\u0432\u0443\u043b\u0438\u0446\u044f|"
+    r"\u043f\u0440\u043e\u0441\u043f\.?|\u043f\u0440\u043e\u0441\u043f\u0435\u043a\u0442|"
+    r"\u0431\u0443\u043b\.?|\u0431\u0443\u043b\u044c\u0432\u0430\u0440|"
+    r"\u043f\u0440\u043e\u0432\.?|\u043f\u0440\u043e\u0432\u0443\u043b\u043e\u043a|"
+    r"\u043f\u043b\.?|\u043f\u043b\u043e\u0449\u0430|"
+    r"\u0443\u0437\u0432\u0456\u0437|\u0448\u043e\u0441\u0435|"
+    r"\u0430\u043b\u0435\u044f|\u043d\u0430\u0431\u0435\u0440\u0435\u0436\u043d\u0430)"
+)
+_UA_LOCALITY = rf"(?:(?:\u043c\.?|\u043c\u0456\u0441\u0442\u043e|\u0441\.?|\u0441\u0435\u043b\u043e|\u0441\u043c\u0442)\s*)?[{_UA_UPPER}][{_UA_LETTERS}{_UA_APOSTROPHES}.\- ]{{1,40}}"
+_UA_STREET_NAME = rf"[{_UA_UPPER}A-Z0-9][{_UA_LETTERS}A-Za-z0-9{_UA_APOSTROPHES}.\- ]{{1,80}}?"
+_UA_BUILDING = rf"(?:\u0431\u0443\u0434\.?\s*)?\d+[{_UA_LETTERS}A-Za-z]?(?:\s*(?:/|-)\s*\d+[{_UA_LETTERS}A-Za-z]?)?"
+_UA_APARTMENT = rf"(?:\s*,?\s*(?:\u043a\u0432\.?|\u043a\u0432\u0430\u0440\u0442\u0438\u0440\u0430|\u043e\u0444\.?|\u043e\u0444\u0456\u0441|apt\.?|apartment)\s*\d+[{_UA_LETTERS}A-Za-z]?)?"
+
 
 def _luhn_valid(value: str) -> bool:
     digits = [int(ch) for ch in value if ch.isdigit()]
@@ -79,21 +98,47 @@ class PIIEngine:
                 r"\b\d{10}\b",
                 priority=70,
                 specificity=70,
-                context_keywords=("rnokpp", "inn", "ipn", "tax id") if numeric_context else (),
+                context_keywords=(
+                    "rnokpp",
+                    "inn",
+                    "ipn",
+                    "tax id",
+                    "\u0440\u043d\u043e\u043a\u043f\u043f",
+                    "\u0456\u043f\u043d",
+                    "\u0456\u043d\u043d",
+                    "\u043f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0438\u0439 \u043d\u043e\u043c\u0435\u0440",
+                    "\u0456\u0434\u0435\u043d\u0442\u0438\u0444\u0456\u043a\u0430\u0446\u0456\u0439\u043d\u0438\u0439 \u043a\u043e\u0434",
+                ) if numeric_context else (),
             ),
             PatternSpec(
                 "PASSPORT_ID",
                 r"\b\d{9}\b",
                 priority=69,
                 specificity=69,
-                context_keywords=("passport", "id card", "id-card") if numeric_context else (),
+                context_keywords=(
+                    "passport",
+                    "id card",
+                    "id-card",
+                    "\u043f\u0430\u0441\u043f\u043e\u0440\u0442",
+                    "id-\u043a\u0430\u0440\u0442",
+                    "id \u043a\u0430\u0440\u0442",
+                    "\u0430\u0439\u0434\u0456-\u043a\u0430\u0440\u0442",
+                ) if numeric_context else (),
             ),
             PatternSpec(
                 "EDRPOU",
                 r"\b\d{8}\b",
                 priority=68,
                 specificity=68,
-                context_keywords=("edrpou", "company code", "company id", "registration code") if numeric_context else (),
+                context_keywords=(
+                    "edrpou",
+                    "company code",
+                    "company id",
+                    "registration code",
+                    "\u0454\u0434\u0440\u043f\u043e\u0443",
+                    "\u043a\u043e\u0434 \u0454\u0434\u0440\u043f\u043e\u0443",
+                    "\u043a\u043e\u0434 \u043a\u043e\u043c\u043f\u0430\u043d\u0456\u0457",
+                ) if numeric_context else (),
             ),
             PatternSpec(
                 "EMAIL",
@@ -102,7 +147,13 @@ class PIIEngine:
                 priority=65,
                 specificity=66,
             ),
-            PatternSpec("PHONE", r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]\d{3}[-.\s]\d{2,4}\b", priority=64, specificity=63),
+            PatternSpec(
+                "PHONE",
+                r"(?<!\w)(?:\+?380[\s.\-]?\(?\d{2}\)?[\s.\-]?\d{3}[\s.\-]?\d{2}[\s.\-]?\d{2}|0\d{2}[\s.\-]?\d{3}[\s.\-]?\d{2}[\s.\-]?\d{2}|\+?\d{1,3}[\s.\-]\(?\d{2,4}\)?(?:[\s.\-]\d{2,4}){2,4})(?!\w)",
+                priority=64,
+                specificity=63,
+            ),
+            PatternSpec("TIME", r"(?<!\d)(?:[01]?\d|2[0-3])[:.][0-5]\d(?:\s?(?:[AaPp]\.?[Mm]\.?))?(?!\d)", priority=64, specificity=64),
             PatternSpec(
                 "COORDS",
                 r"[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)",
@@ -119,11 +170,24 @@ class PIIEngine:
             ),
             PatternSpec("ADDRESS", r"\b\d+\s+[A-Za-z]+\s+(?:St|Street|Ave|Avenue|Road|Rd|Blvd|Lane|Ln)\b", priority=58, specificity=58),
             PatternSpec(
+                "ADDRESS",
+                rf"(?<!\w)(?:(?:{_UA_LOCALITY})\s*,\s*)?{_UA_STREET_TYPE}\s+{_UA_STREET_NAME}\s*,?\s+{_UA_BUILDING}{_UA_APARTMENT}(?!\w)",
+                flags=re.IGNORECASE,
+                priority=58,
+                specificity=76,
+            ),
+            PatternSpec(
                 "ADDRESS_UA",
                 r"\b(?:vul\.|vulytsia|prospekt|bulvar|prov\.)\s+[A-Za-z0-9\-\s]+\b",
                 flags=re.IGNORECASE,
                 priority=57,
                 specificity=57,
+            ),
+            PatternSpec(
+                "PERSON",
+                rf"(?<![\w<{{]){_UA_NAME_WORD}(?:\s+{_UA_NAME_WORD}){{1,2}}(?![\w>}}])",
+                priority=56,
+                specificity=56,
             ),
         ]
 
