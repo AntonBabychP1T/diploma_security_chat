@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Bot, Swords, Settings2 } from 'lucide-react';
 import { StyleSelector } from './StyleSelector';
 import clsx from 'clsx';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Option {
     id: string;
@@ -16,6 +17,7 @@ interface Props {
     model: string;
     providerOptions: Option[];
     modelOptions: Option[];
+    arenaModelOptions: Option[];
     onStyleChange: (style: string) => void;
     onProviderChange: (provider: string) => void;
     onModelChange: (model: string) => void;
@@ -35,6 +37,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
     model,
     providerOptions,
     modelOptions,
+    arenaModelOptions,
     onStyleChange,
     onProviderChange,
     onModelChange,
@@ -45,6 +48,8 @@ export const MobileSettingsModal: React.FC<Props> = ({
     onArenaModelAChange,
     onArenaModelBChange
 }) => {
+    const { t } = useI18n();
+
     if (!isOpen) return null;
 
     return (
@@ -60,7 +65,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                 <div className="flex items-center justify-between p-4 border-b border-white/5">
                     <div className="flex items-center gap-2 text-white font-medium">
                         <Settings2 size={18} />
-                        <span>Chat Settings</span>
+                        <span>{t('chat.settings')}</span>
                     </div>
                     <button
                         onClick={onClose}
@@ -73,7 +78,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                 <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto">
                     {/* Mode Selection */}
                     <div className="space-y-3">
-                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Mode</label>
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.mode')}</label>
                         <div className="grid grid-cols-2 gap-2 bg-gray-950/50 p-1 rounded-xl border border-white/5">
                             <button
                                 onClick={() => onArenaModeChange(false)}
@@ -83,7 +88,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                                 )}
                             >
                                 <Bot size={16} />
-                                <span>Standard</span>
+                                <span>{t('chat.standard')}</span>
                             </button>
                             <button
                                 onClick={() => onArenaModeChange(true)}
@@ -93,7 +98,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                                 )}
                             >
                                 <Swords size={16} />
-                                <span>Arena</span>
+                                <span>{t('chat.arena')}</span>
                             </button>
                         </div>
                     </div>
@@ -102,26 +107,26 @@ export const MobileSettingsModal: React.FC<Props> = ({
                         /* Arena Mobile Config */
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Model A</label>
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.modelA')}</label>
                                 <select
                                     value={arenaModelA}
                                     onChange={(e) => onArenaModelAChange(e.target.value)}
                                     className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary-500 transition-colors appearance-none"
                                 >
-                                    {modelOptions.map((m) => (
+                                    {arenaModelOptions.map((m) => (
                                         <option key={m.id} value={m.id}>{m.label}</option>
                                     ))}
                                 </select>
                             </div>
                             <div className="flex justify-center text-primary-500 font-bold text-sm">VS</div>
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Model B</label>
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.modelB')}</label>
                                 <select
                                     value={arenaModelB}
                                     onChange={(e) => onArenaModelBChange(e.target.value)}
                                     className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary-500 transition-colors appearance-none"
                                 >
-                                    {modelOptions.map((m) => (
+                                    {arenaModelOptions.map((m) => (
                                         <option key={m.id} value={m.id}>{m.label}</option>
                                     ))}
                                 </select>
@@ -131,7 +136,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                         /* Standard Mobile Config */
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Provider</label>
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.provider')}</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {providerOptions.map((p) => (
                                         <button
@@ -151,7 +156,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Model</label>
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.model')}</label>
                                 <select
                                     value={model}
                                     onChange={(e) => onModelChange(e.target.value)}
@@ -167,7 +172,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
 
                     {/* Style Section */}
                     <div className="space-y-3">
-                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Response Style</label>
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('chat.responseStyle')}</label>
                         <div className="bg-gray-800/30 rounded-xl p-2 border border-white/5">
                             <StyleSelector value={style} onChange={onStyleChange} />
                         </div>
@@ -179,7 +184,7 @@ export const MobileSettingsModal: React.FC<Props> = ({
                         onClick={onClose}
                         className="w-full bg-gray-100 hover:bg-white text-gray-900 font-semibold py-3.5 rounded-xl transition-colors"
                     >
-                        Apply Changes
+                        {t('common.applyChanges')}
                     </button>
                 </div>
             </div>

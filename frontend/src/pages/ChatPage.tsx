@@ -9,10 +9,12 @@ import { ArenaMessagePair } from '../components/ArenaMessagePair';
 import { Loader2, Bot } from 'lucide-react';
 import { Menu } from 'lucide-react';
 import clsx from 'clsx';
+import { useI18n } from '../i18n/I18nProvider';
 
 export const ChatPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { t } = useI18n();
 
     const [chats, setChats] = useState<Chat[]>([]);
     const [activeChat, setActiveChat] = useState<Chat | null>(null);
@@ -22,9 +24,10 @@ export const ChatPage: React.FC = () => {
     const [provider, setProvider] = useState("openai");
     const modelsByProvider: Record<string, { id: string; label: string; }[]> = {
         openai: [
-            { id: "gpt-5.1", label: "GPT 5.1" },
-            { id: "gpt-5-nano", label: "GPT 5 Nano" },
-            { id: "gpt-5-mini", label: "GPT 5 Mini" },
+            { id: "gpt-5.5", label: "GPT 5.5" },
+            { id: "gpt-5.4", label: "GPT 5.4" },
+            { id: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+            { id: "gpt-5.4-nano", label: "GPT 5.4 Nano" },
         ],
         gemini: [
             { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
@@ -38,6 +41,7 @@ export const ChatPage: React.FC = () => {
     const [model, setModel] = useState(modelsByProvider["openai"][0].id);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const currentModelOptions = modelsByProvider[provider] || [];
+    const arenaModelOptions = [...modelsByProvider.openai, ...modelsByProvider.gemini];
     const [abortController, setAbortController] = useState<AbortController | null>(null);
     const [optimisticAssistantId, setOptimisticAssistantId] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,8 +50,10 @@ export const ChatPage: React.FC = () => {
 
     // Arena Mode State
     const [isArenaMode, setIsArenaMode] = useState(false);
-    const [arenaModelA, setArenaModelA] = useState(modelsByProvider["openai"][1].id); // Default to nano
+    const [arenaModelA, setArenaModelA] = useState(modelsByProvider["openai"][2].id); // Default to mini
     const [arenaModelB, setArenaModelB] = useState(modelsByProvider["gemini"][0].id); // Default to flash
+
+    const displayChatTitle = (title?: string | null) => title === 'New Chat' ? t('chat.defaultTitle') : title || t('chat.selectChat');
 
     useEffect(() => {
         fetchChats();
@@ -165,7 +171,7 @@ export const ChatPage: React.FC = () => {
             id: Date.now(),
             chat_id: activeChat.id,
             role: 'user',
-            content: text + (attachments.length > 0 ? `\n[Attached: ${attachments.map(a => a.name).join(', ')}]` : ''),
+            content: text + (attachments.length > 0 ? `\n[${t('chat.attached')}: ${attachments.map(a => a.name).join(', ')}]` : ''),
             created_at: new Date().toISOString()
         };
 
@@ -186,7 +192,7 @@ export const ChatPage: React.FC = () => {
                             id: Date.now() + 1,
                             chat_id: activeChat.id,
                             role: 'assistant',
-                            content: `Секретар: ${res.data.response}`,
+                            content: `${t('chat.secretaryPrefix')}: ${res.data.response}`,
                             created_at: new Date().toISOString()
                         }]
                     };
@@ -201,7 +207,7 @@ export const ChatPage: React.FC = () => {
                             id: Date.now() + 2,
                             chat_id: activeChat.id,
                             role: 'assistant',
-                            content: "Секретар недоступний або без доступу до Gmail/Calendar.",
+                            content: t('chat.secretaryUnavailable'),
                             created_at: new Date().toISOString()
                         }]
                     };
@@ -286,7 +292,7 @@ export const ChatPage: React.FC = () => {
             });
 
             if (!res.ok || !res.body) {
-                throw new Error(`Streaming failed: ${res.status}`);
+                throw new Error(`${t('chat.streamingFailed')}: ${res.status}`);
             }
 
             const reader = res.body.getReader();
@@ -373,7 +379,7 @@ export const ChatPage: React.FC = () => {
                             id: Date.now(),
                             chat_id: activeChat.id,
                             role: 'assistant',
-                            content: `Секретар: ${res.data.response}`,
+                            content: `${t('chat.secretaryPrefix')}: ${res.data.response}`,
                             created_at: new Date().toISOString()
                         }]
                     };
@@ -420,19 +426,20 @@ export const ChatPage: React.FC = () => {
                         <Menu size={18} />
                     </button>
                     <div className="flex-1 truncate text-sm text-gray-300">
-                        {activeChat ? activeChat.title : "Виберіть чат"}
+                        {displayChatTitle(activeChat?.title)}
                     </div>
                 </div>
 
                 {activeChat ? (
                     <>
                         <ChatHeader
-                            title={activeChat.title}
+                            title={displayChatTitle(activeChat.title)}
                             style={style}
                             provider={provider}
                             model={model}
                             providerOptions={providerOptions}
                             modelOptions={currentModelOptions}
+                            arenaModelOptions={arenaModelOptions}
                             onStyleChange={setStyle}
                             onProviderChange={handleProviderChange}
                             onModelChange={setModel}
@@ -449,7 +456,7 @@ export const ChatPage: React.FC = () => {
                             {loading ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
                                     <Loader2 className="animate-spin text-primary-500" size={32} />
-                                    <span className="text-sm">Loading conversation...</span>
+                                    <span className="text-sm">{t('chat.loadingConversation')}</span>
                                 </div>
                             ) : (
                                 <div className="max-w-4xl mx-auto w-full py-4 space-y-6">
@@ -542,15 +549,15 @@ export const ChatPage: React.FC = () => {
                         <div className="w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-black/20 border border-white/5">
                             <Bot size={32} className="text-primary-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-200 mb-2 text-center">Welcome to AI Chat</h3>
+                        <h3 className="text-xl font-semibold text-gray-200 mb-2 text-center">{t('chat.welcomeTitle')}</h3>
                         <p className="text-gray-400 max-w-md text-center text-sm sm:text-base">
-                            Select a chat from the sidebar or start a new conversation to begin.
+                            {t('chat.welcomeSubtitle')}
                         </p>
                         <button
                             onClick={handleNewChat}
                             className="mt-8 px-6 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-full font-medium transition-all shadow-lg shadow-primary-900/20 hover:scale-105"
                         >
-                            Start New Chat
+                            {t('chat.startNewChat')}
                         </button>
                     </div>
                 )}

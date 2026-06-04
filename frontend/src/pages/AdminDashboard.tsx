@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, MessageSquare, Shield, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface GlobalStats {
     total_users: number;
@@ -13,6 +14,7 @@ interface GlobalStats {
 }
 
 export const AdminDashboard: React.FC = () => {
+    const { t } = useI18n();
     const [stats, setStats] = useState<GlobalStats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -30,8 +32,8 @@ export const AdminDashboard: React.FC = () => {
         fetchStats();
     }, []);
 
-    if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Loading...</div>;
-    if (!stats) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Access Denied</div>;
+    if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">{t('common.loading')}</div>;
+    if (!stats) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">{t('common.accessDenied')}</div>;
 
     const modelData = Object.entries(stats.model_usage).map(([name, value]) => ({ name, value }));
     const COLORS = ['#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899'];
@@ -43,7 +45,7 @@ export const AdminDashboard: React.FC = () => {
                     <Link to="/" className="p-2 hover:bg-white/5 rounded-lg transition-colors">
                         <ArrowLeft size={24} />
                     </Link>
-                    <h1 className="text-3xl font-bold">Admin Analytics</h1>
+                    <h1 className="text-3xl font-bold">{t('admin.analytics')}</h1>
                 </div>
 
                 {/* KPI Cards */}
@@ -53,7 +55,7 @@ export const AdminDashboard: React.FC = () => {
                             <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
                                 <Users size={24} />
                             </div>
-                            <span className="text-gray-400">Total Users</span>
+                            <span className="text-gray-400">{t('admin.totalUsers')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_users}</div>
                     </div>
@@ -63,7 +65,7 @@ export const AdminDashboard: React.FC = () => {
                             <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
                                 <MessageSquare size={24} />
                             </div>
-                            <span className="text-gray-400">Total Messages</span>
+                            <span className="text-gray-400">{t('admin.totalMessages')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_messages}</div>
                     </div>
@@ -73,11 +75,11 @@ export const AdminDashboard: React.FC = () => {
                             <div className="p-3 bg-green-500/10 text-green-400 rounded-xl">
                                 <Shield size={24} />
                             </div>
-                            <span className="text-gray-400">Masked Messages</span>
+                            <span className="text-gray-400">{t('admin.maskedMessages')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.masked_messages}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                            {((stats.masked_messages / stats.total_messages) * 100).toFixed(1)}% of total
+                            {t('admin.totalPercent', { percent: ((stats.masked_messages / stats.total_messages) * 100).toFixed(1) })}
                         </div>
                     </div>
 
@@ -86,7 +88,7 @@ export const AdminDashboard: React.FC = () => {
                             <div className="p-3 bg-yellow-500/10 text-yellow-400 rounded-xl">
                                 <Zap size={24} />
                             </div>
-                            <span className="text-gray-400">Total Tokens</span>
+                            <span className="text-gray-400">{t('admin.totalTokens')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_tokens.toLocaleString()}</div>
                     </div>
@@ -95,7 +97,7 @@ export const AdminDashboard: React.FC = () => {
                 {/* Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
-                        <h3 className="text-xl font-semibold mb-6">Model Usage Distribution</h3>
+                        <h3 className="text-xl font-semibold mb-6">{t('admin.modelUsageDistribution')}</h3>
                         <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>

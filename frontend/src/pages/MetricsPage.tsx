@@ -3,6 +3,7 @@ import { api, Metrics } from '../api/client';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Activity, Shield, Clock, MessageSquare, Trophy, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface LeaderboardEntry {
     model: string;
@@ -12,6 +13,7 @@ interface LeaderboardEntry {
 }
 
 export const MetricsPage: React.FC = () => {
+    const { t } = useI18n();
     const [metrics, setMetrics] = useState<Metrics | null>(null);
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
@@ -20,27 +22,27 @@ export const MetricsPage: React.FC = () => {
         api.get<LeaderboardEntry[]>('/metrics/leaderboard').then(res => setLeaderboard(res.data));
     }, []);
 
-    if (!metrics) return <div className="p-8 text-white">Loading...</div>;
+    if (!metrics) return <div className="p-8 text-white">{t('common.loading')}</div>;
 
     const data = [
-        { name: 'Total Messages', value: metrics.total_messages },
-        { name: 'Masked Messages (Recent)', value: metrics.recent_masked_count },
+        { name: t('metrics.totalMessages'), value: metrics.total_messages },
+        { name: t('metrics.maskedRecent'), value: metrics.recent_masked_count },
     ];
 
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100 p-8">
             <Link to="/" className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors">
-                <ArrowLeft size={20} /> Back to Chat
+                <ArrowLeft size={20} /> {t('metrics.backToChat')}
             </Link>
 
             <h1 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                <Activity className="text-blue-500" /> System Metrics
+                <Activity className="text-blue-500" /> {t('metrics.systemMetrics')}
             </h1>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-400">Total Messages</h3>
+                        <h3 className="text-gray-400">{t('metrics.totalMessages')}</h3>
                         <MessageSquare className="text-blue-500" />
                     </div>
                     <p className="text-3xl font-bold">{metrics.total_messages}</p>
@@ -48,7 +50,7 @@ export const MetricsPage: React.FC = () => {
 
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-400">Avg Latency (Last 100)</h3>
+                        <h3 className="text-gray-400">{t('metrics.avgLatency')}</h3>
                         <Clock className="text-green-500" />
                     </div>
                     <p className="text-3xl font-bold">{metrics.recent_avg_latency.toFixed(3)}s</p>
@@ -56,19 +58,19 @@ export const MetricsPage: React.FC = () => {
 
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-400">Masked Messages (Last 100)</h3>
+                        <h3 className="text-gray-400">{t('metrics.maskedMessagesLast100')}</h3>
                         <Shield className="text-yellow-500" />
                     </div>
                     <p className="text-3xl font-bold">{metrics.recent_masked_count}</p>
                     <p className="text-sm text-gray-500 mt-2">
-                        {((metrics.recent_masked_count / metrics.sample_size) * 100).toFixed(1)}% of recent traffic
+                        {t('metrics.recentTraffic', { percent: ((metrics.recent_masked_count / metrics.sample_size) * 100).toFixed(1) })}
                     </p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 h-96">
-                    <h3 className="text-xl font-semibold mb-6">Activity Overview</h3>
+                    <h3 className="text-xl font-semibold mb-6">{t('metrics.activityOverview')}</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -87,11 +89,11 @@ export const MetricsPage: React.FC = () => {
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
                         <Activity className="text-purple-500" />
-                        Model Usage (Last 100 Messages)
+                        {t('metrics.modelUsage')}
                     </h3>
                     {Object.keys(metrics.model_usage).length === 0 ? (
                         <p className="text-gray-500 text-center py-8">
-                            No model usage data yet
+                            {t('metrics.noModelUsage')}
                         </p>
                     ) : (
                         <div className="space-y-3">
@@ -111,7 +113,7 @@ export const MetricsPage: React.FC = () => {
                                                     style={{ width: `${percentage}%` }}
                                                 />
                                             </div>
-                                            <p className="text-sm text-gray-400 mt-1">{percentage}% of recent messages</p>
+                                            <p className="text-sm text-gray-400 mt-1">{t('metrics.recentMessagesPercent', { percent: percentage })}</p>
                                         </div>
                                     );
                                 })}
@@ -122,7 +124,7 @@ export const MetricsPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-8 mb-8">
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 h-96">
-                    <h3 className="text-xl font-semibold mb-6">Activity Overview</h3>
+                    <h3 className="text-xl font-semibold mb-6">{t('metrics.activityOverview')}</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -141,11 +143,11 @@ export const MetricsPage: React.FC = () => {
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
                         <Trophy className="text-yellow-500" />
-                        Model Leaderboard (Arena Votes)
+                        {t('metrics.leaderboard')}
                     </h3>
                     {leaderboard.length === 0 ? (
                         <p className="text-gray-500 text-center py-8">
-                            No votes yet. Use Arena Mode to compare models!
+                            {t('metrics.noVotes')}
                         </p>
                     ) : (
                         <div className="space-y-4">
@@ -157,7 +159,7 @@ export const MetricsPage: React.FC = () => {
                                     <div className="flex-1">
                                         <p className="font-semibold text-white">{entry.model}</p>
                                         <p className="text-sm text-gray-400">
-                                            {entry.wins} wins / {entry.votes} votes
+                                            {t('metrics.winsVotes', { wins: entry.wins, votes: entry.votes })}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">

@@ -3,6 +3,8 @@ import { api, LoginResponse } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, Loader2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const LoginPage: React.FC = () => {
     const [email, setEmail] = useState("");
@@ -10,6 +12,7 @@ export const LoginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const { login } = useAuth();
+    const { t, translateApiError } = useI18n();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +29,7 @@ export const LoginPage: React.FC = () => {
             login(res.data.access_token);
             navigate('/');
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Login failed");
+            setError(translateApiError(err.response?.data?.detail, 'errors.loginFailed'));
         } finally {
             setLoading(false);
         }
@@ -34,10 +37,13 @@ export const LoginPage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+            <div className="absolute right-4 top-4">
+                <LanguageSwitcher />
+            </div>
             <div className="w-full max-w-md bg-gray-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-                    <p className="text-gray-400">Sign in to continue to Secure Chat</p>
+                    <h1 className="text-2xl font-bold text-white mb-2">{t('auth.loginTitle')}</h1>
+                    <p className="text-gray-400">{t('auth.loginSubtitle')}</p>
                 </div>
 
                 {error && (
@@ -48,7 +54,7 @@ export const LoginPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.email')}</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
@@ -63,7 +69,7 @@ export const LoginPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.password')}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
@@ -82,14 +88,14 @@ export const LoginPage: React.FC = () => {
                         disabled={loading}
                         className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-lg shadow-primary-900/20 flex items-center justify-center gap-2 mt-6"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : "Sign In"}
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : t('auth.signIn')}
                     </button>
                 </form>
 
                 <div className="mt-6 text-center text-sm text-gray-500">
-                    Don't have an account?{' '}
+                    {t('auth.noAccount')}{' '}
                     <Link to="/register" className="text-primary-400 hover:text-primary-300 font-medium">
-                        Sign up
+                        {t('auth.signUp')}
                     </Link>
                 </div>
             </div>

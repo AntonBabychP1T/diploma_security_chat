@@ -7,6 +7,8 @@ class LLMOptions(BaseModel):
     max_output_tokens: Optional[int] = Field(None, gt=0)
     timeout: Optional[float] = Field(None, gt=0.0)
     stream: bool = False
+    reasoning_effort: Optional[str] = None
+    text_verbosity: Optional[str] = None
     
     # Tooling
     tools: Optional[List[Dict[str, Any]]] = None

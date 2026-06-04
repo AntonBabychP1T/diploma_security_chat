@@ -94,8 +94,8 @@ class MemoryService:
         self.db = db
         self.user_id = user_id
         self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.extract_model = getattr(settings, "MEMORY_EXTRACT_MODEL", "gpt-5-mini")
-        self.inject_model = getattr(settings, "MEMORY_INJECT_MODEL", "gpt-5-mini")
+        self.extract_model = getattr(settings, "MEMORY_EXTRACT_MODEL", "gpt-5.4-mini")
+        self.inject_model = getattr(settings, "MEMORY_INJECT_MODEL", "gpt-5.4-mini")
         self.extract_max_tokens = getattr(settings, "MEMORY_EXTRACT_MAX_TOKENS", 10000)
         self.inject_max_tokens = getattr(settings, "MEMORY_INJECT_MAX_TOKENS", 10000)
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { Briefcase, Coffee, MessageCircle, Zap } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
     value: string;
@@ -8,11 +9,12 @@ interface Props {
 }
 
 export const StyleSelector: React.FC<Props> = ({ value, onChange }) => {
+    const { t } = useI18n();
     const styles = [
-        { id: 'default', label: 'Default', icon: Zap },
-        { id: 'professional', label: 'Pro', icon: Briefcase },
-        { id: 'friendly', label: 'Friendly', icon: MessageCircle },
-        { id: 'casual', label: 'Casual', icon: Coffee },
+        { id: 'default', label: t('style.default'), icon: Zap },
+        { id: 'professional', label: t('style.professional'), icon: Briefcase },
+        { id: 'friendly', label: t('style.friendly'), icon: MessageCircle },
+        { id: 'casual', label: t('style.casual'), icon: Coffee },
     ];
 
     return (

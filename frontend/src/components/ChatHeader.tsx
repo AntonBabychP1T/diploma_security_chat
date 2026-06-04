@@ -3,6 +3,7 @@ import { StyleSelector } from './StyleSelector';
 import { MobileSettingsModal } from './MobileSettingsModal';
 import { Bot, Swords, Settings2 } from 'lucide-react';
 import clsx from 'clsx';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Option {
     id: string;
@@ -16,6 +17,7 @@ interface Props {
     model: string;
     providerOptions: Option[];
     modelOptions: Option[];
+    arenaModelOptions: Option[];
     onStyleChange: (style: string) => void;
     onProviderChange: (provider: string) => void;
     onModelChange: (model: string) => void;
@@ -34,6 +36,7 @@ export const ChatHeader: React.FC<Props> = ({
     model,
     providerOptions,
     modelOptions,
+    arenaModelOptions,
     onStyleChange,
     onProviderChange,
     onModelChange,
@@ -44,6 +47,7 @@ export const ChatHeader: React.FC<Props> = ({
     onArenaModelAChange,
     onArenaModelBChange
 }) => {
+    const { t } = useI18n();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     return (
@@ -56,6 +60,7 @@ export const ChatHeader: React.FC<Props> = ({
                 model={model}
                 providerOptions={providerOptions}
                 modelOptions={modelOptions}
+                arenaModelOptions={arenaModelOptions}
                 onStyleChange={onStyleChange}
                 onProviderChange={onProviderChange}
                 onModelChange={onModelChange}
@@ -90,7 +95,7 @@ export const ChatHeader: React.FC<Props> = ({
                                 "p-1.5 rounded-lg transition-colors mr-2",
                                 isArenaMode ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700 text-gray-400"
                             )}
-                            title="Toggle Arena Mode"
+                            title={t('chat.toggleArena')}
                         >
                             <Swords size={16} />
                         </button>
@@ -102,7 +107,7 @@ export const ChatHeader: React.FC<Props> = ({
                                     onChange={(e) => onArenaModelAChange(e.target.value)}
                                     className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
                                 >
-                                    {modelOptions.map((m) => (
+                                    {arenaModelOptions.map((m) => (
                                         <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
                                             {m.label}
                                         </option>
@@ -114,7 +119,7 @@ export const ChatHeader: React.FC<Props> = ({
                                     onChange={(e) => onArenaModelBChange(e.target.value)}
                                     className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
                                 >
-                                    {modelOptions.map((m) => (
+                                    {arenaModelOptions.map((m) => (
                                         <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
                                             {m.label}
                                         </option>

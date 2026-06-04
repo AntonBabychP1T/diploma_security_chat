@@ -30,7 +30,7 @@ ToolRunner = Callable[[str, Dict[str, Any]], Awaitable[Union[str, Dict[str, Any]
 class OpenAIProvider(LLMProvider):
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.default_model = "gpt-5-mini"
+        self.default_model = settings.OPENAI_DEFAULT_MODEL
 
     # ----------------------------
     # Helpers: JSON-safe conversion
@@ -347,6 +347,12 @@ class OpenAIProvider(LLMProvider):
                     "input": input_items,
                     "max_output_tokens": configured_max,
                 }
+                reasoning_effort = opts.reasoning_effort or settings.OPENAI_REASONING_EFFORT
+                text_verbosity = opts.text_verbosity or settings.OPENAI_TEXT_VERBOSITY
+                if reasoning_effort:
+                    req["reasoning"] = {"effort": reasoning_effort}
+                if text_verbosity:
+                    req["text"] = {"verbosity": text_verbosity}
                 if instructions:
                     req["instructions"] = instructions
                 if temperature is not None:
@@ -573,6 +579,12 @@ class OpenAIProvider(LLMProvider):
                     "max_output_tokens": configured_max,
                     "stream": True,
                 }
+                reasoning_effort = opts.reasoning_effort or settings.OPENAI_REASONING_EFFORT
+                text_verbosity = opts.text_verbosity or settings.OPENAI_TEXT_VERBOSITY
+                if reasoning_effort:
+                    req["reasoning"] = {"effort": reasoning_effort}
+                if text_verbosity:
+                    req["text"] = {"verbosity": text_verbosity}
                 if instructions:
                     req["instructions"] = instructions
                 if temperature is not None:
