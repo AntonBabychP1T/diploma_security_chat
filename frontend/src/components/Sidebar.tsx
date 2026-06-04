@@ -4,6 +4,8 @@ import { MessageSquare, Plus, BarChart2, Trash2, Edit2, Check, X, Search, User a
 import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/I18nProvider';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface Props {
     chats: Chat[];
@@ -17,13 +19,17 @@ interface Props {
 export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDeleteChat, onRenameChat, onCloseSidebar }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { t } = useI18n();
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editTitle, setEditTitle] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
 
-    const filteredChats = chats.filter(c =>
-        c.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const displayChatTitle = (title: string) => title === 'New Chat' ? t('chat.defaultTitle') : title;
+
+    const filteredChats = chats.filter(c => {
+        const needle = searchTerm.toLowerCase();
+        return c.title.toLowerCase().includes(needle) || displayChatTitle(c.title).toLowerCase().includes(needle);
+    });
 
     const startEditing = (e: React.MouseEvent, chat: Chat) => {
         e.stopPropagation();
@@ -47,7 +53,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
 
     const handleDelete = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        if (confirm("Are you sure you want to delete this chat?")) {
+        if (confirm(t('chat.deleteConfirm'))) {
             onDeleteChat(id);
         }
     };
@@ -69,14 +75,14 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                     className="w-full group flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl py-3 px-4 transition-all duration-200 shadow-lg shadow-primary-900/20 font-medium"
                 >
                     <Plus size={20} className="group-hover:scale-110 transition-transform" />
-                    <span>New Chat</span>
+                    <span>{t('chat.newChat')}</span>
                 </button>
 
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary-400 transition-colors" />
                     <input
                         type="text"
-                        placeholder="Search chats..."
+                        placeholder={t('chat.searchChats')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-gray-900/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500/50 focus:bg-gray-900 transition-all placeholder:text-gray-600"
@@ -87,7 +93,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
             {/* Chat List */}
             <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 mb-1">
-                    Recent Chats
+                    {t('chat.recentChats')}
                 </div>
 
                 {filteredChats.map(chat => (
@@ -127,11 +133,11 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                         ) : (
                             <>
                                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                                    <span className="truncate text-sm font-medium leading-tight">{chat.title}</span>
+                                    <span className="truncate text-sm font-medium leading-tight">{displayChatTitle(chat.title)}</span>
                                     <span className="truncate text-xs text-gray-500 font-normal">
                                         {chat.messages && chat.messages.length > 0
                                             ? chat.messages[chat.messages.length - 1].content.substring(0, 30) + "..."
-                                            : "No messages yet"}
+                                            : t('chat.noMessagesYet')}
                                     </span>
                                 </div>
 
@@ -141,10 +147,10 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                                     "opacity-0 group-hover:opacity-100",
                                     activeChatId === chat.id ? "bg-gray-800" : ""
                                 )}>
-                                    <button onClick={(e) => startEditing(e, chat)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-white/5 rounded-md transition-colors" title="Rename">
+                                    <button onClick={(e) => startEditing(e, chat)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-white/5 rounded-md transition-colors" title={t('common.rename')}>
                                         <Edit2 size={13} />
                                     </button>
-                                    <button onClick={(e) => handleDelete(e, chat.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-md transition-colors" title="Delete">
+                                    <button onClick={(e) => handleDelete(e, chat.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-md transition-colors" title={t('common.delete')}>
                                         <Trash2 size={13} />
                                     </button>
                                 </div>
@@ -155,7 +161,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
 
                 {filteredChats.length === 0 && (
                     <div className="text-center py-8 text-gray-600 text-sm">
-                        No chats found
+                        {t('chat.noChatsFound')}
                     </div>
                 )}
             </div>
@@ -167,7 +173,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                         <UserIcon size={18} />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-xs text-gray-500">Увійшли як</p>
+                        <p className="text-xs text-gray-500">{t('chat.signedInAs')}</p>
                         <p className="text-sm text-white font-medium truncate">{user?.email || "..."}</p>
                     </div>
                 </div>
@@ -180,8 +186,8 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                         <UserIcon size={18} />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-medium">Мій профіль</p>
-                        <p className="text-xs text-gray-500">Безпека та акаунт</p>
+                        <p className="text-sm font-medium">{t('chat.myProfile')}</p>
+                        <p className="text-xs text-gray-500">{t('chat.securityAndAccount')}</p>
                     </div>
                 </Link>
 
@@ -192,8 +198,11 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                     <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-primary-500/20 group-hover:text-primary-400 transition-colors">
                         <BarChart2 size={18} />
                     </div>
-                    <span className="text-sm font-medium">Metrics Dashboard</span>
+                    <span className="text-sm font-medium">{t('chat.metricsDashboard')}</span>
                 </Link>
+                <div className="mt-3">
+                    <LanguageSwitcher compact />
+                </div>
             </div>
         </div>
     );

@@ -31,9 +31,9 @@ async def test_pii_service():
     print(f"Masked: {masked}")
     print(f"Mapping: {mapping}")
     
-    assert "{{EMAIL_1}}" in masked
-    assert "{{EMAIL_2}}" in masked
-    assert mapping["{{EMAIL_1}}"] == "test@example.com"
+    assert "<EMAIL_1>" in masked
+    assert "<EMAIL_2>" in masked
+    assert mapping["<EMAIL_1>"] == "test@example.com"
     assert "test@example.com" not in masked
     
     # Test 2: Unmasking
@@ -48,8 +48,8 @@ async def test_pii_service():
     print(f"Text 2 Masked: {masked2}")
     print(f"Mapping 2: {mapping2}")
     
-    assert "{{EMAIL_1}}" in masked2
-    assert mapping2["{{EMAIL_1}}"] == "test@example.com"
+    assert "<EMAIL_1>" in masked2
+    assert mapping2["<EMAIL_1>"] == "test@example.com"
     
     # Test 4: Missing Braces Unmasking (LLM Robustness)
     text3 = "Please contact EMAIL_1 regarding this."
@@ -75,7 +75,7 @@ async def test_secretary_service():
     tool_call = MagicMock()
     tool_call.id = "call_123"
     tool_call.function.name = "list_emails"
-    tool_call.function.arguments = '{"account_label": "work", "filters": {"sender": "{{EMAIL_1}}"}}'
+    tool_call.function.arguments = '{"account_label": "work", "filters": {"sender": "<EMAIL_1>"}}'
     
     response_1 = MagicMock()
     response_1.content = None
@@ -83,7 +83,7 @@ async def test_secretary_service():
     
     # Turn 2: Final response
     response_2 = MagicMock()
-    response_2.content = "I found emails from {{EMAIL_1}}."
+    response_2.content = "I found emails from <EMAIL_1>."
     response_2.tool_calls = []
     
     provider_mock.generate.side_effect = [response_1, response_2]
@@ -103,11 +103,11 @@ async def test_secretary_service():
     messages = call_args[0][0]
     last_user_msg = messages[-1]
     print(f"Message sent to LLM: {last_user_msg['content']}")
-    assert "{{EMAIL_1}}" in last_user_msg['content']
+    assert "<EMAIL_1>" in last_user_msg['content']
     assert "test@example.com" not in last_user_msg['content']
     
     # 2. Check if tool was called with UNMASKED argument
-    # The tool was called with '{{EMAIL_1}}' in args from LLM, but should be unmasked before execution
+    # The tool was called with '<EMAIL_1>' in args from LLM, but should be unmasked before execution
     execution_args = tools_mock.list_emails.call_args
     print(f"Tool Execution Args: {execution_args}")
     # tools_mock.list_emails(account_label, filters)
@@ -116,7 +116,7 @@ async def test_secretary_service():
     
     # 3. Check final response is unmasked
     assert "test@example.com" in final_response
-    assert "{{EMAIL_1}}" not in final_response
+    assert "<EMAIL_1>" not in final_response
     
     print("SecretaryService Tests Passed!")
 

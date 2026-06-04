@@ -10,9 +10,6 @@ python-jose[cryptography]
 passlib[bcrypt]
 email-validator
 python-multipart
-google-generativeai
+google-genai
 pypdf
-pywebpush
-apscheduler
-httpx
-pytz
+tenacity

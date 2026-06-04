@@ -3,6 +3,8 @@ import { api, LoginResponse } from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const RegisterPage: React.FC = () => {
     const [email, setEmail] = useState("");
@@ -12,6 +14,7 @@ export const RegisterPage: React.FC = () => {
     const [error, setError] = useState("");
     const navigate = useNavigate();
     const { login } = useAuth();
+    const { t, translateApiError } = useI18n();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,7 +34,7 @@ export const RegisterPage: React.FC = () => {
             login(res.data.access_token);
             navigate('/');
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Registration failed");
+            setError(translateApiError(err.response?.data?.detail, 'errors.registrationFailed'));
         } finally {
             setLoading(false);
         }
@@ -39,10 +42,13 @@ export const RegisterPage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+            <div className="absolute right-4 top-4">
+                <LanguageSwitcher />
+            </div>
             <div className="w-full max-w-md bg-gray-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
-                    <p className="text-gray-400">Join Secure Chat today</p>
+                    <h1 className="text-2xl font-bold text-white mb-2">{t('auth.registerTitle')}</h1>
+                    <p className="text-gray-400">{t('auth.registerSubtitle')}</p>
                 </div>
 
                 {error && (
@@ -53,7 +59,7 @@ export const RegisterPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Invite Code</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('auth.inviteCode')}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
@@ -68,7 +74,7 @@ export const RegisterPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.email')}</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
@@ -83,7 +89,7 @@ export const RegisterPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.password')}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
@@ -103,14 +109,14 @@ export const RegisterPage: React.FC = () => {
                         disabled={loading}
                         className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-lg shadow-primary-900/20 flex items-center justify-center gap-2 mt-6"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : "Create Account"}
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : t('auth.createAccount')}
                     </button>
                 </form>
 
                 <div className="mt-6 text-center text-sm text-gray-500">
-                    Already have an account?{' '}
+                    {t('auth.haveAccount')}{' '}
                     <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium">
-                        Sign in
+                        {t('auth.signIn')}
                     </Link>
                 </div>
             </div>

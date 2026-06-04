@@ -46,4 +46,95 @@
   .btn-ghost {
     @apply hover:bg-white/5 text-gray-400 hover:text-white transition-colors duration-200;
   }
+
+  .message-markdown {
+    @apply whitespace-normal;
+  }
+
+  .message-markdown > *:first-child {
+    @apply mt-0;
+  }
+
+  .message-markdown > *:last-child {
+    @apply mb-0;
+  }
+
+  .message-markdown p {
+    @apply my-3;
+  }
+
+  .message-markdown h1 {
+    @apply mt-5 mb-3 text-xl font-semibold leading-snug text-white;
+  }
+
+  .message-markdown h2 {
+    @apply mt-5 mb-2.5 text-lg font-semibold leading-snug text-white;
+  }
+
+  .message-markdown h3 {
+    @apply mt-4 mb-2 text-base font-semibold leading-snug text-white;
+  }
+
+  .message-markdown h4,
+  .message-markdown h5,
+  .message-markdown h6 {
+    @apply mt-4 mb-2 text-sm font-semibold leading-snug text-white;
+  }
+
+  .message-markdown ul {
+    @apply my-3 list-disc space-y-1 pl-5;
+  }
+
+  .message-markdown ol {
+    @apply my-3 list-decimal space-y-1 pl-5;
+  }
+
+  .message-markdown li {
+    @apply pl-1;
+  }
+
+  .message-markdown li > p {
+    @apply my-1;
+  }
+
+  .message-markdown strong {
+    @apply font-semibold text-white;
+  }
+
+  .message-markdown em {
+    @apply italic;
+  }
+
+  .message-markdown a {
+    @apply text-primary-300 underline underline-offset-2 hover:text-primary-200;
+  }
+
+  .message-markdown blockquote {
+    @apply my-3 border-l-2 border-primary-500/60 pl-3 text-gray-300;
+  }
+
+  .message-markdown code {
+    @apply rounded bg-gray-950/80 px-1.5 py-0.5 font-mono text-[0.9em] text-primary-100;
+  }
+
+  .message-markdown pre {
+    @apply my-3 overflow-x-auto rounded-lg border border-white/10 bg-gray-950/80 p-3;
+  }
+
+  .message-markdown pre code {
+    @apply bg-transparent p-0 text-sm text-gray-100;
+  }
+
+  .message-markdown table {
+    @apply my-3 block w-full overflow-x-auto border-collapse text-sm;
+  }
+
+  .message-markdown th,
+  .message-markdown td {
+    @apply border border-white/10 px-3 py-2 text-left align-top;
+  }
+
+  .message-markdown th {
+    @apply bg-white/5 font-semibold text-white;
+  }
 }

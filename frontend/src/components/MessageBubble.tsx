@@ -2,7 +2,9 @@ import React from 'react';
 import { Message } from '../api/client';
 import clsx from 'clsx';
 import { User, Bot, Shield, Clock } from 'lucide-react';
-import { ActionCard } from './ActionCard';
+import { useI18n } from '../i18n/I18nProvider';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Props {
     message: Message;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true }) => {
+    const { t } = useI18n();
     const isUser = message.role === 'user';
 
     return (
@@ -41,7 +44,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
                         isUser ? "flex-row-reverse" : "flex-row"
                     )}>
                         <span className="font-medium text-gray-400">
-                            {isUser ? "You" : "Assistant"}
+                            {isUser ? t('message.you') : t('message.assistant')}
                         </span>
                         <span>•</span>
                         <time>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
@@ -50,23 +53,43 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
 
                 {/* Bubble */}
                 <div className={clsx(
-                    "px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm break-words whitespace-pre-wrap",
+                    "px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm break-words",
+                    isUser ? "whitespace-pre-wrap" : "message-markdown",
                     isUser
                         ? "bg-gray-800 text-gray-100 rounded-tr-sm"
                         : "bg-gray-800/50 border border-white/5 text-gray-100 rounded-tl-sm backdrop-blur-sm"
                 )}>
-                    {message.content}
+                    {isUser ? (
+                        message.content
+                    ) : (
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                a: ({ href, children }) => (
+                                    <a href={href} target="_blank" rel="noreferrer">
+                                        {children}
+                                    </a>
+                                )
+                            }}
+                        >
+                            {message.content}
+                        </ReactMarkdown>
+                    )}
                 </div>
 
                 {/* Metadata / Footer */}
                 {!isUser && message.meta_data && (
-                    <div className="mt-2 w-full">
-                        {/* Action Cards for Digest */}
-                        {message.meta_data.is_system_generated && message.meta_data.actions && (
-                            <div className="mt-3 space-y-2">
-                                {message.meta_data.actions.map((action: any) => (
-                                    <ActionCard key={action.id} action={action} />
-                                ))}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {message.meta_data.masked_used && (
+                            <div className="flex items-center gap-1 text-[10px] text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                                <Shield size={10} />
+                                <span>{t('message.piiMasked')}</span>
+                            </div>
+                        )}
+                        {message.meta_data.latency && (
+                            <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                <Clock size={10} />
+                                <span>{message.meta_data.latency.toFixed(2)}s</span>
                             </div>
                         )}
 

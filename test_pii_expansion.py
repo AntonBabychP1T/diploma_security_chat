@@ -1,7 +1,9 @@
-﻿import os
+import os
 import sys
 
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
+
 from app.services.pii_service import PIIService
 
 
@@ -18,7 +20,10 @@ def test_pii_expansion():
         ("Location: 50.4501, 30.5234", "COORDS"),
         ("API Key: sk-1234567890abcdef1234567890abcdef1234567890abcdef", "OPENAI_KEY"),
         ("Login: password: mysecretpassword123", "CREDENTIAL"),
-        ("Address: 10 Main Street", "ADDRESS"),
+        ("Address: вул. Хрещатик 1", "ADDRESS"),
+        ("Manager: Олександр Мельник", "PERSON"),
+        ("Meeting at 18:30", "TIME"),
+        ("Phone: +380 67 245 18 90", "PHONE"),
         (
             "JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
             "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
@@ -27,24 +32,13 @@ def test_pii_expansion():
         ),
     ]
 
-    print("Testing PII Expansion...")
     for text, expected_type in test_cases:
         masked, mapping = service.mask(text)
-        print(f"\nOriginal: {text}")
-        print(f"Masked:   {masked}")
-        print(f"Mapping:  {mapping}")
 
-        if any(expected_type in token for token in mapping.keys()):
-            print(f"Detected {expected_type}")
-        else:
-            print(f"Failed to detect {expected_type}")
-
-        unmasked = service.unmask(masked, mapping)
-        if unmasked == text:
-            print("Unmasking successful")
-        else:
-            print(f"Unmasking failed: {unmasked}")
+        assert f"<{expected_type}_1>" in masked
+        assert service.unmask(masked, mapping) == text
 
 
 if __name__ == "__main__":
     test_pii_expansion()
+    print("Tests passed.")

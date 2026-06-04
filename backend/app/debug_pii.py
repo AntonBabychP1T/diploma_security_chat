@@ -15,22 +15,27 @@ def debug_pii():
     
     print("--- Testing Email Regex ---")
     for email in emails:
-        masked, _ = pii.mask(email)
-        print(f"'{email}' -> '{masked}' (Matched? {'{{' in masked})")
+        masked, mapping = pii.mask(email)
+        print(f"'{email}' -> '{masked}' (Matched? {bool(mapping)})")
 
-    # 2. Test Unmasking with missing braces
+    # 2. Test Unmasking with missing or legacy braces
     print("\n--- Testing Unmasking ---")
-    mapping = {"{{EMAIL_1}}": "real@email.com"}
+    mapping = {"<EMAIL_1>": "real@email.com"}
     
     # Case A: Correct format
-    text_Correct = "Send to {{EMAIL_1}}"
+    text_Correct = "Send to <EMAIL_1>"
     unmasked_correct = pii.unmask(text_Correct, mapping)
     print(f"Correct: '{text_Correct}' -> '{unmasked_correct}'")
     
-    # Case B: Missing braces (Simulation of LLM stripping them)
+    # Case B: Missing brackets (Simulation of LLM stripping them)
     text_broken = "Send to EMAIL_1"
     unmasked_broken = pii.unmask(text_broken, mapping)
     print(f"Broken:  '{text_broken}' -> '{unmasked_broken}'")
+
+    # Case C: Legacy braces from older masking output
+    text_legacy = "Send to {{EMAIL_1}}"
+    unmasked_legacy = pii.unmask(text_legacy, mapping)
+    print(f"Legacy:  '{text_legacy}' -> '{unmasked_legacy}'")
 
 if __name__ == "__main__":
     debug_pii()

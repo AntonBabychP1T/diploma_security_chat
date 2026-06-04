@@ -12,8 +12,14 @@ class ModelCapability(BaseModel):
 class ModelRegistry:
     _capabilities: Dict[str, ModelCapability] = {
         
-        # GPT-5.4 family (use Responses API)
-        "gpt-5.4-nano": ModelCapability(
+        # GPT-5 family (use Responses API)
+        "gpt-5.5": ModelCapability(
+            supports_temperature=True,
+            supports_vision=True,
+            supports_tools=True,
+            api_type="responses",
+        ),
+        "gpt-5.4": ModelCapability(
             supports_temperature=True,
             supports_vision=True,
             supports_tools=True,
@@ -25,7 +31,7 @@ class ModelRegistry:
             supports_tools=True,
             api_type="responses",
         ),
-        "gpt-5.4": ModelCapability(
+        "gpt-5.4-nano": ModelCapability(
             supports_temperature=True,
             supports_vision=True,
             supports_tools=True,
@@ -45,7 +51,7 @@ class ModelRegistry:
             return cls._capabilities[model_id]
 
         if model_id.startswith("gpt-5"):
-            return cls._capabilities.get("gpt-5.4-nano", cls._defaults)
+            return cls._capabilities.get("gpt-5.5", cls._defaults)
 
         if model_id.startswith("o1"):
             return ModelCapability(supports_temperature=False, supports_tools=False, api_type="chat_completions")

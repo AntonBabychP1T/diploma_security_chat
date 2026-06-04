@@ -4,6 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import { ThumbsUp, Minus } from 'lucide-react';
 import { api } from '../api/client';
 import clsx from 'clsx';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
     messageA: Message;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export const ArenaMessagePair: React.FC<Props> = ({ messageA, messageB, onVote }) => {
+    const { t } = useI18n();
     const [voted, setVoted] = useState<string | null>(null);
 
     const handleVote = async (winner: 'A' | 'B' | 'tie') => {
@@ -63,28 +65,28 @@ export const ArenaMessagePair: React.FC<Props> = ({ messageA, messageB, onVote }
                         className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
                     >
                         <ThumbsUp size={16} className="text-green-400" />
-                        <span>Left is Better</span>
+                        <span>{t('arena.leftBetter')}</span>
                     </button>
                     <button
                         onClick={() => handleVote('tie')}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
                     >
                         <Minus size={16} className="text-gray-400" />
-                        <span>Tie</span>
+                        <span>{t('arena.tie')}</span>
                     </button>
                     <button
                         onClick={() => handleVote('B')}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
                     >
                         <ThumbsUp size={16} className="text-green-400" />
-                        <span>Right is Better</span>
+                        <span>{t('arena.rightBetter')}</span>
                     </button>
                 </div>
             )}
 
             {voted && (
                 <div className="text-center text-sm text-gray-400 animate-in fade-in zoom-in duration-300">
-                    Thanks for voting!
+                    {t('arena.thanks')}
                 </div>
             )}
         </div>

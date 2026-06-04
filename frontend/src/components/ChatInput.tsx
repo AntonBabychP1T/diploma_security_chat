@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Square, ArrowUp, Mic, MicOff, Loader2, Bot, X, FileText, Image as ImageIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { transcribeAudio } from '../api/client';
+import { useI18n } from '../i18n/I18nProvider';
 
 export interface Attachment {
     name: string;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop, secretaryMode, onSecretaryModeChange }) => {
+    const { t } = useI18n();
     const [text, setText] = useState("");
     const [files, setFiles] = useState<Attachment[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -56,7 +58,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
             for (let i = 0; i < e.target.files.length; i++) {
                 const file = e.target.files[i];
                 if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                    alert(`File ${file.name} is too large (max 5MB)`);
+                    alert(t('input.fileTooLarge', { name: file.name }));
                     continue;
                 }
 
@@ -125,7 +127,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
     const startRecording = async () => {
         if (!navigator.mediaDevices || !window.MediaRecorder) {
-            alert("Voice input is not supported in this browser.");
+            alert(t('input.voiceUnsupported'));
             return;
         }
         try {
@@ -153,7 +155,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     setText(prev => prev ? `${prev} ${res.data.text}` : res.data.text);
                 } catch (err) {
                     console.error("Transcription failed", err);
-                    alert("Не вдалося розпізнати аудіо, спробуйте ще раз.");
+                    alert(t('input.audioFailed'));
                 } finally {
                     setTranscribing(false);
                 }
@@ -193,7 +195,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
             }, 30000);
         } catch (err) {
             console.error("Microphone error", err);
-            alert("Не вдалося отримати доступ до мікрофона.");
+            alert(t('input.micDenied'));
         }
     };
 
@@ -208,7 +210,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     {files.map((file, i) => (
                         <div key={i} className="relative group bg-gray-800 border border-gray-700 rounded-lg p-2 pr-8 flex items-center gap-2">
                             {file.type.startsWith('image/') ? (
-                                <ImageIcon size={16} className="text-blue-400" />
+                                <ImageIcon size={16} className="text-primary-300" />
                             ) : (
                                 <FileText size={16} className="text-gray-400" />
                             )}
@@ -239,7 +241,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                 {/* Attachment Button */}
                 <button
                     className="p-3 text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-full transition-colors mb-0.5"
-                    title="Add attachment"
+                    title={t('input.addAttachment')}
                     onClick={() => fileInputRef.current?.click()}
                 >
                     <Paperclip size={20} />
@@ -255,7 +257,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                                 ? "text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20"
                                 : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
                         )}
-                        title={secretaryMode ? "Secretary Mode ON" : "Secretary Mode OFF"}
+                        title={secretaryMode ? t('input.secretaryOn') : t('input.secretaryOff')}
                     >
                         <Bot size={20} />
                     </button>
@@ -266,7 +268,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type a message..."
+                    placeholder={t('input.placeholder')}
                     disabled={disabled}
                     rows={1}
                     className="flex-1 bg-transparent border-none focus:ring-0 text-gray-100 placeholder:text-gray-500 resize-none py-3.5 max-h-[200px] scrollbar-hide"
@@ -283,7 +285,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                         recording ? "bg-red-600 text-white animate-pulse" : "bg-gray-700 text-gray-300 hover:bg-gray-600",
                         (disabled || isSending || transcribing) && "opacity-50 cursor-not-allowed"
                     )}
-                    title={recording ? "Зупинити запис" : "Голосове введення"}
+                    title={recording ? t('input.stopRecording') : t('input.voiceInput')}
                 >
                     {transcribing ? <Loader2 className="animate-spin" size={18} /> : recording ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
@@ -303,7 +305,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     <button
                         onClick={onStop}
                         className="p-3 rounded-full mb-0.5 transition-all duration-200 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20"
-                        title="Зупинити генерацію"
+                        title={t('input.stopGeneration')}
                     >
                         <Square size={18} />
                     </button>
@@ -325,7 +327,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
             <div className="text-center mt-2">
                 <p className="text-[10px] text-gray-500">
-                    AI can make mistakes. Please verify important information.
+                    {t('input.disclaimer')}
                 </p>
             </div>
         </div>
