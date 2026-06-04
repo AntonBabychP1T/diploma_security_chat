@@ -210,7 +210,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     {files.map((file, i) => (
                         <div key={i} className="relative group bg-gray-800 border border-gray-700 rounded-lg p-2 pr-8 flex items-center gap-2">
                             {file.type.startsWith('image/') ? (
-                                <ImageIcon size={16} className="text-blue-400" />
+                                <ImageIcon size={16} className="text-primary-300" />
                             ) : (
                                 <FileText size={16} className="text-gray-400" />
                             )}

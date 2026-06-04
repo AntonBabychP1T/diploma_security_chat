@@ -36,7 +36,7 @@ export const AdminDashboard: React.FC = () => {
     if (!stats) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">{t('common.accessDenied')}</div>;
 
     const modelData = Object.entries(stats.model_usage).map(([name, value]) => ({ name, value }));
-    const COLORS = ['#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899'];
+    const COLORS = ['#667b4f', '#8a7f5c', '#5f6d6b', '#a1a1aa'];
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-100 p-8 font-sans">
@@ -52,7 +52,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
                         <div className="flex items-center gap-4 mb-2">
-                            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+                            <div className="p-3 bg-primary-500/10 text-primary-300 rounded-xl">
                                 <Users size={24} />
                             </div>
                             <span className="text-gray-400">{t('admin.totalUsers')}</span>
@@ -62,7 +62,7 @@ export const AdminDashboard: React.FC = () => {
 
                     <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
                         <div className="flex items-center gap-4 mb-2">
-                            <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
+                            <div className="p-3 bg-gray-700/40 text-gray-300 rounded-xl">
                                 <MessageSquare size={24} />
                             </div>
                             <span className="text-gray-400">{t('admin.totalMessages')}</span>
@@ -107,7 +107,7 @@ export const AdminDashboard: React.FC = () => {
                                         cy="50%"
                                         innerRadius={60}
                                         outerRadius={100}
-                                        fill="#8884d8"
+                                        fill="#667b4f"
                                         paddingAngle={5}
                                         dataKey="value"
                                     >

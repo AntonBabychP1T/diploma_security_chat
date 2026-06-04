@@ -261,7 +261,7 @@ export const ProfilePage: React.FC = () => {
             <div className="flex items-center gap-3">
                 <div className={provider === 'google'
                     ? "w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xs"
-                    : "w-8 h-8 rounded-lg bg-[#00a4ef] flex items-center justify-center text-white font-bold text-xs"
+                    : "w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center text-white font-bold text-xs"
                 }>
                     {provider === 'google' ? 'G' : 'MS'}
                 </div>
@@ -493,7 +493,7 @@ export const ProfilePage: React.FC = () => {
                         <button
                             onClick={() => startOAuth('microsoft')}
                             disabled={microsoftConnecting}
-                            className="px-4 py-2.5 bg-[#00a4ef] text-white hover:bg-[#0078d4] disabled:opacity-60 rounded-xl font-medium transition-all shadow-lg shadow-[#00a4ef]/20 flex items-center gap-2"
+                            className="px-4 py-2.5 bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-60 rounded-xl font-medium transition-all shadow-lg shadow-black/20 flex items-center gap-2"
                         >
                             {microsoftConnecting ? <Loader2 className="animate-spin" size={16} /> : <span>Microsoft</span>}
                             <span>{microsoftConnecting ? t('common.connecting') : t('profile.connectMicrosoft')}</span>
