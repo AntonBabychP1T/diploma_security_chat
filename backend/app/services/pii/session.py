@@ -8,6 +8,9 @@ from .engine import PIIEngine
 from .types import MatchCandidate
 
 _INCOMPLETE_BARE_V2_RE = re.compile(r"PII:[A-Z0-9_]*(:\d{0,4})?$")
+_FLEX_V2_RE = re.compile(r"<<\s*PII\s*:\s*([A-Z0-9_]+)\s*:\s*0*(\d{1,4})\s*>>")
+_FLEX_V2_SINGLE_RE = re.compile(r"<\s*PII\s*:\s*([A-Z0-9_]+)\s*:\s*0*(\d{1,4})\s*>")
+_FLEX_V2_BARE_RE = re.compile(r"PII\s*:\s*([A-Z0-9_]+)\s*:\s*0*(\d{1,4})")
 
 
 class PIISession:
@@ -72,7 +75,10 @@ class PIISession:
         self._ensure_unmask_cache()
         if not self._unmask_regex:
             return text
-        return self._unmask_regex.sub(lambda m: self._unmask_lookup[m.group(0)], text)
+        return self._unmask_regex.sub(
+            lambda m: self._unmask_lookup[self._normalize_unmask_key(m.group(0))],
+            text,
+        )
 
     def unmask_chunk(self, chunk: str) -> str:
         if not chunk:
@@ -117,9 +123,30 @@ class PIISession:
             return
 
         lookup: Dict[str, str] = {}
+        patterns: List[str] = []
         for token, value in self.token_to_value.items():
             for variant in token_variants(token):
                 lookup.setdefault(variant, value)
+
+            parsed = parse_token(token)
+            if parsed:
+                type_name, counter = parsed
+                normalized_keys = (
+                    f"<<PII:{type_name}:{counter}>>",
+                    f"<PII:{type_name}:{counter}>",
+                    f"PII:{type_name}:{counter}",
+                )
+                for key in normalized_keys:
+                    lookup.setdefault(key, value)
+
+                escaped_type = re.escape(type_name)
+                patterns.extend(
+                    [
+                        rf"<<\s*PII\s*:\s*{escaped_type}\s*:\s*0*{counter}\s*>>",
+                        rf"<\s*PII\s*:\s*{escaped_type}\s*:\s*0*{counter}\s*>",
+                        rf"PII\s*:\s*{escaped_type}\s*:\s*0*{counter}",
+                    ]
+                )
 
         if not lookup:
             self._unmask_regex = None
@@ -127,9 +154,24 @@ class PIISession:
             return
 
         keys = sorted(lookup.keys(), key=len, reverse=True)
-        pattern = "|".join(re.escape(item) for item in keys)
+        patterns.extend(re.escape(item) for item in keys)
+        pattern = "|".join(patterns)
         self._unmask_regex = re.compile(pattern)
         self._unmask_lookup = lookup
+
+    def _normalize_unmask_key(self, token: str) -> str:
+        compact = re.sub(r"\s+", "", token)
+
+        for regex, template in (
+            (_FLEX_V2_RE, "<<PII:{type_name}:{counter}>>"),
+            (_FLEX_V2_SINGLE_RE, "<PII:{type_name}:{counter}>"),
+            (_FLEX_V2_BARE_RE, "PII:{type_name}:{counter}"),
+        ):
+            match = regex.fullmatch(compact)
+            if match:
+                return template.format(type_name=match.group(1), counter=int(match.group(2)))
+
+        return token
 
     def _invalidate_unmask_cache(self) -> None:
         self._unmask_regex = None
@@ -138,6 +180,22 @@ class PIISession:
     def _split_tail(self, text: str) -> Tuple[str, str]:
         if not text:
             return "", ""
+
+        double_pos = text.rfind("<<")
+        if double_pos >= 0 and self._is_incomplete_flexible_v2_suffix(text[double_pos:]):
+            return text[:double_pos], text[double_pos:]
+
+        single_pos_flex = text.rfind("<")
+        while single_pos_flex > 0 and text[single_pos_flex - 1] == "<":
+            single_pos_flex = text.rfind("<", 0, single_pos_flex)
+        if single_pos_flex >= 0 and self._is_incomplete_flexible_v2_suffix(text[single_pos_flex:]):
+            return text[:single_pos_flex], text[single_pos_flex:]
+
+        bare_pos_flex = text.rfind("PII")
+        while bare_pos_flex > 0 and "<" in text[max(0, bare_pos_flex - 4):bare_pos_flex]:
+            bare_pos_flex = text.rfind("PII", 0, bare_pos_flex)
+        if bare_pos_flex >= 0 and self._is_incomplete_flexible_v2_suffix(text[bare_pos_flex:]):
+            return text[:bare_pos_flex], text[bare_pos_flex:]
 
         bare_pos = text.rfind("PII:")
         while bare_pos >= 1 and text[bare_pos - 1] == "<":
@@ -177,3 +235,23 @@ class PIISession:
         if _INCOMPLETE_BARE_V2_RE.match(suffix):
             return text[:pos], suffix
         return text, ""
+
+    def _is_incomplete_flexible_v2_suffix(self, suffix: str) -> bool:
+        compact = re.sub(r"\s+", "", suffix)
+        if not compact:
+            return False
+
+        if compact.startswith("<<PII"):
+            if ">>" in compact:
+                return False
+            return bool(re.fullmatch(r"<<PII(?::[A-Z0-9_]*)?(?::\d{0,4})?", compact))
+
+        if compact.startswith("<PII"):
+            if ">" in compact[1:]:
+                return False
+            return bool(re.fullmatch(r"<PII(?::[A-Z0-9_]*)?(?::\d{0,4})?", compact))
+
+        if compact.startswith("PII"):
+            return bool(re.fullmatch(r"PII(?::[A-Z0-9_]*)?(?::\d{0,4})?", compact))
+
+        return False

@@ -25,7 +25,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
             <div className={clsx(
                 "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-1",
                 isUser
-                    ? "bg-gray-700 text-gray-300"
+                    ? "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
                     : "bg-primary-600 text-white shadow-primary-900/20",
                 !isFirstInGroup && "opacity-0" // Hide avatar for subsequent messages in group
             )}>
@@ -43,7 +43,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
                         "flex items-center gap-2 mb-1 text-xs text-gray-500",
                         isUser ? "flex-row-reverse" : "flex-row"
                     )}>
-                        <span className="font-medium text-gray-400">
+                        <span className="font-medium text-gray-600 dark:text-gray-400">
                             {isUser ? t('message.you') : t('message.assistant')}
                         </span>
                         <span>•</span>
@@ -56,8 +56,8 @@ export const MessageBubble: React.FC<Props> = ({ message, isFirstInGroup = true 
                     "px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm break-words",
                     isUser ? "whitespace-pre-wrap" : "message-markdown",
                     isUser
-                        ? "bg-gray-800 text-gray-100 rounded-tr-sm"
-                        : "bg-gray-800/50 border border-white/5 text-gray-100 rounded-tl-sm backdrop-blur-sm"
+                        ? "bg-primary-600 text-white rounded-tr-sm dark:bg-gray-800 dark:text-gray-100"
+                        : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm backdrop-blur-sm dark:bg-gray-800/50 dark:border-white/5 dark:text-gray-100"
                 )}>
                     {isUser ? (
                         message.content

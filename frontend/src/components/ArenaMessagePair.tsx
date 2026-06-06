@@ -44,13 +44,13 @@ export const ArenaMessagePair: React.FC<Props> = ({ messageA, messageB, onVote }
     return (
         <div className="flex flex-col gap-4 w-full">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={clsx("relative rounded-xl border p-2 transition-all", voted === 'A' ? "border-green-500/50 bg-green-500/5" : "border-white/5 bg-gray-900/20")}>
+                <div className={clsx("relative rounded-xl border p-2 transition-all", voted === 'A' ? "border-green-500/50 bg-green-500/5" : "border-gray-200 bg-white/60 dark:border-white/5 dark:bg-gray-900/20")}>
                     <div className="absolute top-2 right-2 text-xs text-gray-500 font-mono">
                         {messageA.meta_data?.model}
                     </div>
                     <MessageBubble message={messageA} isFirstInGroup={true} />
                 </div>
-                <div className={clsx("relative rounded-xl border p-2 transition-all", voted === 'B' ? "border-green-500/50 bg-green-500/5" : "border-white/5 bg-gray-900/20")}>
+                <div className={clsx("relative rounded-xl border p-2 transition-all", voted === 'B' ? "border-green-500/50 bg-green-500/5" : "border-gray-200 bg-white/60 dark:border-white/5 dark:bg-gray-900/20")}>
                     <div className="absolute top-2 right-2 text-xs text-gray-500 font-mono">
                         {messageB.meta_data?.model}
                     </div>
@@ -62,21 +62,21 @@ export const ArenaMessagePair: React.FC<Props> = ({ messageA, messageB, onVote }
                 <div className="flex justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <button
                         onClick={() => handleVote('A')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-white/10 dark:text-gray-100"
                     >
                         <ThumbsUp size={16} className="text-green-400" />
                         <span>{t('arena.leftBetter')}</span>
                     </button>
                     <button
                         onClick={() => handleVote('tie')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-white/10 dark:text-gray-100"
                     >
                         <Minus size={16} className="text-gray-400" />
                         <span>{t('arena.tie')}</span>
                     </button>
                     <button
                         onClick={() => handleVote('B')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-white/10 transition-colors text-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-white/10 dark:text-gray-100"
                     >
                         <ThumbsUp size={16} className="text-green-400" />
                         <span>{t('arena.rightBetter')}</span>

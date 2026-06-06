@@ -71,9 +71,9 @@ export const ChatHeader: React.FC<Props> = ({
                 onArenaModelAChange={onArenaModelAChange}
                 onArenaModelBChange={onArenaModelBChange}
             />
-            <div className="h-16 border-b border-white/5 bg-gray-900/50 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
+            <div className="h-16 border-b border-gray-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10 dark:border-white/5 dark:bg-gray-900/50">
                 <div className="flex items-center gap-4">
-                    <h2 className="font-semibold text-lg text-gray-100 truncate max-w-md">
+                    <h2 className="font-semibold text-lg text-gray-950 truncate max-w-md dark:text-gray-100">
                         {title}
                     </h2>
                 </div>
@@ -82,18 +82,18 @@ export const ChatHeader: React.FC<Props> = ({
                     {/* Mobile Settings Toggle */}
                     <button
                         onClick={() => setIsSettingsOpen(true)}
-                        className="sm:hidden p-2 text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors"
+                        className="sm:hidden p-2 text-gray-500 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors dark:text-gray-400 dark:hover:text-white dark:bg-gray-800/50 dark:hover:bg-gray-700/50"
                     >
                         <Settings2 size={18} />
                     </button>
 
                     {/* Desktop Controls */}
-                    <div className="hidden sm:flex items-center gap-2 bg-gray-800/50 border border-white/10 rounded-xl px-3 py-2 transition-all duration-300">
+                    <div className="hidden sm:flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 transition-all duration-300 dark:bg-gray-800/50 dark:border-white/10">
                         <button
                             onClick={() => onArenaModeChange(!isArenaMode)}
                             className={clsx(
                                 "p-1.5 rounded-lg transition-colors mr-2",
-                                isArenaMode ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700 text-gray-400"
+                                isArenaMode ? "bg-primary-500/15 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400" : "hover:bg-gray-100 text-gray-500 dark:hover:bg-gray-700 dark:text-gray-400"
                             )}
                             title={t('chat.toggleArena')}
                         >
@@ -105,10 +105,10 @@ export const ChatHeader: React.FC<Props> = ({
                                 <select
                                     value={arenaModelA}
                                     onChange={(e) => onArenaModelAChange(e.target.value)}
-                                    className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
+                                    className="bg-transparent text-sm text-gray-900 outline-none max-w-[100px] sm:max-w-[140px] dark:text-white"
                                 >
                                     {arenaModelOptions.map((m) => (
-                                        <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        <option key={m.id} value={m.id} className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                                             {m.label}
                                         </option>
                                     ))}
@@ -117,10 +117,10 @@ export const ChatHeader: React.FC<Props> = ({
                                 <select
                                     value={arenaModelB}
                                     onChange={(e) => onArenaModelBChange(e.target.value)}
-                                    className="bg-transparent text-sm text-white outline-none max-w-[100px] sm:max-w-[140px]"
+                                    className="bg-transparent text-sm text-gray-900 outline-none max-w-[100px] sm:max-w-[140px] dark:text-white"
                                 >
                                     {arenaModelOptions.map((m) => (
-                                        <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        <option key={m.id} value={m.id} className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                                             {m.label}
                                         </option>
                                     ))}
@@ -132,10 +132,10 @@ export const ChatHeader: React.FC<Props> = ({
                                 <select
                                     value={provider}
                                     onChange={(e) => onProviderChange(e.target.value)}
-                                    className="bg-transparent text-sm text-white outline-none"
+                                    className="bg-transparent text-sm text-gray-900 outline-none dark:text-white"
                                 >
                                     {providerOptions.map((p) => (
-                                        <option key={p.id} value={p.id} className="bg-gray-900 text-gray-100">
+                                        <option key={p.id} value={p.id} className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                                             {p.label}
                                         </option>
                                     ))}
@@ -144,10 +144,10 @@ export const ChatHeader: React.FC<Props> = ({
                                 <select
                                     value={model}
                                     onChange={(e) => onModelChange(e.target.value)}
-                                    className="bg-transparent text-sm text-white outline-none"
+                                    className="bg-transparent text-sm text-gray-900 outline-none dark:text-white"
                                 >
                                     {modelOptions.map((m) => (
-                                        <option key={m.id} value={m.id} className="bg-gray-900 text-gray-100">
+                                        <option key={m.id} value={m.id} className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                                             {m.label}
                                         </option>
                                     ))}

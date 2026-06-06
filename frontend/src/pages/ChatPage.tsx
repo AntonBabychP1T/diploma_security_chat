@@ -6,6 +6,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
 import { ChatHeader } from '../components/ChatHeader';
 import { ArenaMessagePair } from '../components/ArenaMessagePair';
+import { SecretaryThinking } from '../components/SecretaryThinking';
 import { Loader2, Bot } from 'lucide-react';
 import { Menu } from 'lucide-react';
 import clsx from 'clsx';
@@ -30,6 +31,10 @@ export const ChatPage: React.FC = () => {
             { id: "gpt-5.4-nano", label: "GPT 5.4 Nano" },
         ],
         gemini: [
+            { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+            { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview" },
+            { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite" },
+            { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
             { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
             { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
         ]
@@ -46,12 +51,13 @@ export const ChatPage: React.FC = () => {
     const [optimisticAssistantId, setOptimisticAssistantId] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [secretaryMode, setSecretaryMode] = useState(false);
+    const [secretaryThinking, setSecretaryThinking] = useState(false);
     const autoSecretary = typeof window !== 'undefined' ? localStorage.getItem('auto_secretary') === 'true' : false;
 
     // Arena Mode State
     const [isArenaMode, setIsArenaMode] = useState(false);
     const [arenaModelA, setArenaModelA] = useState(modelsByProvider["openai"][2].id); // Default to mini
-    const [arenaModelB, setArenaModelB] = useState(modelsByProvider["gemini"][0].id); // Default to flash
+    const [arenaModelB, setArenaModelB] = useState(modelsByProvider["gemini"][0].id); // Default to Gemini 3.5 Flash
 
     const displayChatTitle = (title?: string | null) => title === 'New Chat' ? t('chat.defaultTitle') : title || t('chat.selectChat');
 
@@ -69,7 +75,7 @@ export const ChatPage: React.FC = () => {
 
     useEffect(() => {
         scrollToBottom();
-    }, [activeChat?.messages]);
+    }, [activeChat?.messages, secretaryThinking]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -84,11 +90,29 @@ export const ChatPage: React.FC = () => {
         }
     };
 
+    const upsertChatInList = (chat: Chat) => {
+        setChats(prev => {
+            const exists = prev.some(c => c.id === chat.id);
+            if (!exists) {
+                return [chat, ...prev];
+            }
+            return prev.map(c => c.id === chat.id ? chat : c);
+        });
+    };
+
+    const syncChat = async (chatId: number) => {
+        const res = await api.get<Chat>(`/chats/${chatId}`);
+        setActiveChat(prev => prev?.id === chatId ? res.data : prev);
+        upsertChatInList(res.data);
+        return res.data;
+    };
+
     const fetchChat = async (chatId: number) => {
         setLoading(true);
         try {
             const res = await api.get<Chat>(`/chats/${chatId}`);
             setActiveChat(res.data);
+            upsertChatInList(res.data);
         } catch (err) {
             console.error("Failed to fetch chat", err);
         } finally {
@@ -99,7 +123,7 @@ export const ChatPage: React.FC = () => {
     const handleNewChat = async () => {
         try {
             const res = await api.post<Chat>('/chats', { title: 'New Chat' });
-            setChats([res.data, ...chats]);
+            setChats(prev => [res.data, ...prev.filter(c => c.id !== res.data.id)]);
             navigate(`/chats/${res.data.id}`);
         } catch (err) {
             console.error("Failed to create chat", err);
@@ -119,7 +143,7 @@ export const ChatPage: React.FC = () => {
     const handleRenameChat = async (id: number, newTitle: string) => {
         try {
             await updateChat(id, newTitle);
-            setChats(chats.map(c => c.id === id ? { ...c, title: newTitle } : c));
+            setChats(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
             if (activeChat?.id === id) {
                 setActiveChat({ ...activeChat, title: newTitle });
             }
@@ -131,7 +155,7 @@ export const ChatPage: React.FC = () => {
     const handleDeleteChat = async (id: number) => {
         try {
             await deleteChat(id);
-            setChats(chats.filter(c => c.id !== id));
+            setChats(prev => prev.filter(c => c.id !== id));
             if (activeChat?.id === id) {
                 setActiveChat(null);
                 navigate('/');
@@ -152,6 +176,7 @@ export const ChatPage: React.FC = () => {
             });
         }
         setSending(false);
+        setSecretaryThinking(false);
         setAbortController(null);
         setOptimisticAssistantId(null);
     };
@@ -182,8 +207,13 @@ export const ChatPage: React.FC = () => {
         setActiveChat(updatedChat);
 
         if (secretaryCommand) {
+            const controller = new AbortController();
+            setAbortController(controller);
+            setSending(true);
+            setSecretaryThinking(true);
+
             try {
-                const res = await askSecretary(secretaryQuery || text, activeChat.id);
+                const res = await askSecretary(secretaryQuery || text, activeChat.id, controller.signal);
                 setActiveChat(prev => {
                     if (!prev) return null;
                     return {
@@ -197,21 +227,30 @@ export const ChatPage: React.FC = () => {
                         }]
                     };
                 });
+                await syncChat(res.data.chat_id);
             } catch (err) {
-                console.error("Secretary agent failed", err);
-                setActiveChat(prev => {
-                    if (!prev) return null;
-                    return {
-                        ...prev,
-                        messages: [...(prev.messages || []), {
-                            id: Date.now() + 2,
-                            chat_id: activeChat.id,
-                            role: 'assistant',
-                            content: t('chat.secretaryUnavailable'),
-                            created_at: new Date().toISOString()
-                        }]
-                    };
-                });
+                if ((err as any).name === "CanceledError" || (err as any).code === "ERR_CANCELED") {
+                    console.warn("Secretary request cancelled");
+                } else {
+                    console.error("Secretary agent failed", err);
+                    setActiveChat(prev => {
+                        if (!prev) return null;
+                        return {
+                            ...prev,
+                            messages: [...(prev.messages || []), {
+                                id: Date.now() + 2,
+                                chat_id: activeChat.id,
+                                role: 'assistant',
+                                content: t('chat.secretaryUnavailable'),
+                                created_at: new Date().toISOString()
+                            }]
+                        };
+                    });
+                }
+            } finally {
+                setSending(false);
+                setSecretaryThinking(false);
+                setAbortController(null);
             }
             return;
         }
@@ -244,6 +283,7 @@ export const ChatPage: React.FC = () => {
                         messages: newMessages
                     };
                 });
+                await syncChat(activeChat.id);
             } catch (err) {
                 console.error("Failed to send arena message", err);
             } finally {
@@ -346,7 +386,7 @@ export const ChatPage: React.FC = () => {
             });
 
             // Refresh chat to sync with persisted message IDs/content
-            await fetchChat(activeChat.id);
+            await syncChat(activeChat.id);
         } catch (err) {
             if ((err as any).name === "AbortError") {
                 console.warn("Request cancelled");
@@ -384,6 +424,7 @@ export const ChatPage: React.FC = () => {
                         }]
                     };
                 });
+                await syncChat(activeChat.id);
             } catch (err) {
                 console.error("Secretary agent failed", err);
             }
@@ -391,7 +432,7 @@ export const ChatPage: React.FC = () => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden font-sans">
+        <div className="flex h-screen bg-gray-50 text-gray-950 overflow-hidden font-sans dark:bg-gray-950 dark:text-gray-100">
             {/* Sidebar with mobile overlay */}
             <div className={clsx(
                 "fixed inset-0 z-30 transition-transform duration-200 md:static md:translate-x-0 md:w-72",
@@ -413,19 +454,19 @@ export const ChatPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex-1 flex flex-col min-w-0 relative bg-gray-950">
+            <div className="flex-1 flex flex-col min-w-0 relative bg-gray-50 dark:bg-gray-950">
                 {/* Background Gradient Effect */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950 pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-gray-50 to-gray-100 pointer-events-none dark:from-gray-900 dark:via-gray-950 dark:to-gray-950" />
 
                 {/* Mobile top bar */}
-                <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-white/5 z-20 bg-gray-950">
+                <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-gray-200 z-20 bg-white dark:border-white/5 dark:bg-gray-950">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2 rounded-lg bg-gray-800 text-white"
+                        className="p-2 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-white"
                     >
                         <Menu size={18} />
                     </button>
-                    <div className="flex-1 truncate text-sm text-gray-300">
+                    <div className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">
                         {displayChatTitle(activeChat?.title)}
                     </div>
                 </div>
@@ -513,16 +554,20 @@ export const ChatPage: React.FC = () => {
                                         return renderedMessages;
                                     })()}
 
-                                    {sending && (!optimisticAssistantId || (activeChat.messages || []).find(m => m.id === optimisticAssistantId && !m.content)) && (
+                                    {secretaryThinking && (
+                                        <SecretaryThinking />
+                                    )}
+
+                                    {sending && !secretaryThinking && (!optimisticAssistantId || (activeChat.messages || []).find(m => m.id === optimisticAssistantId && !m.content)) && (
                                         <div className="flex gap-3 sm:gap-4 max-w-4xl mx-auto w-full animate-in fade-in duration-300">
                                             <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center shrink-0 shadow-sm mt-1">
                                                 <Bot size={16} className="text-white" />
                                             </div>
-                                            <div className="flex items-center gap-2 bg-gray-800/50 border border-white/5 px-4 py-3 rounded-2xl rounded-tl-sm">
+                                            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm dark:bg-gray-800/50 dark:border-white/5">
                                                 <div className="flex gap-1">
-                                                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s] dark:bg-gray-400"></span>
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s] dark:bg-gray-400"></span>
+                                                    <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce dark:bg-gray-400"></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -546,11 +591,11 @@ export const ChatPage: React.FC = () => {
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-500 relative z-0 px-4">
-                        <div className="w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-black/20 border border-white/5">
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-gray-200/70 border border-gray-200 dark:bg-gray-900 dark:shadow-black/20 dark:border-white/5">
                             <Bot size={32} className="text-primary-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-200 mb-2 text-center">{t('chat.welcomeTitle')}</h3>
-                        <p className="text-gray-400 max-w-md text-center text-sm sm:text-base">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center dark:text-gray-200">{t('chat.welcomeTitle')}</h3>
+                        <p className="text-gray-500 max-w-md text-center text-sm sm:text-base dark:text-gray-400">
                             {t('chat.welcomeSubtitle')}
                         </p>
                         <button

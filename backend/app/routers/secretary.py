@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from app.core.database import get_db
 from app.services.secretary_service import SecretaryService
+from app.services.chat.transcript_persister import TranscriptPersister
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.chat import Chat, Message
@@ -79,6 +80,7 @@ async def ask_secretary(
     
     # Commit all changes
     await db.commit()
+    await TranscriptPersister(db).update_chat_title_if_new(chat_id, request.query, response)
     
     return SecretaryResponse(response=response, chat_id=chat_id)
 

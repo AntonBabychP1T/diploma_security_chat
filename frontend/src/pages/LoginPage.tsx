@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 export const LoginPage: React.FC = () => {
     const [email, setEmail] = useState("");
@@ -36,14 +37,15 @@ export const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-            <div className="absolute right-4 top-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 dark:bg-gray-950">
+            <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
+                <ThemeToggle />
                 <LanguageSwitcher />
             </div>
-            <div className="w-full max-w-md bg-gray-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div className="w-full max-w-md bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl p-8 shadow-2xl shadow-gray-200/70 dark:bg-gray-900/50 dark:border-white/10 dark:shadow-black/20">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-white mb-2">{t('auth.loginTitle')}</h1>
-                    <p className="text-gray-400">{t('auth.loginSubtitle')}</p>
+                    <h1 className="text-2xl font-bold text-gray-950 mb-2 dark:text-white">{t('auth.loginTitle')}</h1>
+                    <p className="text-gray-500 dark:text-gray-400">{t('auth.loginSubtitle')}</p>
                 </div>
 
                 {error && (
@@ -54,14 +56,14 @@ export const LoginPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.email')}</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-1.5 dark:text-gray-400">{t('common.email')}</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-gray-800/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/50 dark:border-white/10 dark:text-white"
                                 placeholder="name@example.com"
                                 required
                             />
@@ -69,14 +71,14 @@ export const LoginPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t('common.password')}</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-1.5 dark:text-gray-400">{t('common.password')}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-gray-800/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/50 dark:border-white/10 dark:text-white"
                                 placeholder="••••••••"
                                 required
                             />
@@ -94,7 +96,7 @@ export const LoginPage: React.FC = () => {
 
                 <div className="mt-6 text-center text-sm text-gray-500">
                     {t('auth.noAccount')}{' '}
-                    <Link to="/register" className="text-primary-400 hover:text-primary-300 font-medium">
+                    <Link to="/register" className="text-primary-700 hover:text-primary-600 font-medium dark:text-primary-400 dark:hover:text-primary-300">
                         {t('auth.signUp')}
                     </Link>
                 </div>

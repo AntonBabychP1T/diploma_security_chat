@@ -32,17 +32,17 @@ export const AdminDashboard: React.FC = () => {
         fetchStats();
     }, []);
 
-    if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">{t('common.loading')}</div>;
-    if (!stats) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">{t('common.accessDenied')}</div>;
+    if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-950 dark:bg-gray-950 dark:text-white">{t('common.loading')}</div>;
+    if (!stats) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-950 dark:bg-gray-950 dark:text-white">{t('common.accessDenied')}</div>;
 
     const modelData = Object.entries(stats.model_usage).map(([name, value]) => ({ name, value }));
     const COLORS = ['#667b4f', '#8a7f5c', '#5f6d6b', '#a1a1aa'];
 
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100 p-8 font-sans">
+        <div className="min-h-screen bg-gray-50 text-gray-950 p-8 font-sans dark:bg-gray-950 dark:text-gray-100">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center gap-4 mb-8">
-                    <Link to="/" className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-white/5">
                         <ArrowLeft size={24} />
                     </Link>
                     <h1 className="text-3xl font-bold">{t('admin.analytics')}</h1>
@@ -50,32 +50,32 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm dark:bg-gray-900/50 dark:border-white/5">
                         <div className="flex items-center gap-4 mb-2">
                             <div className="p-3 bg-primary-500/10 text-primary-300 rounded-xl">
                                 <Users size={24} />
                             </div>
-                            <span className="text-gray-400">{t('admin.totalUsers')}</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('admin.totalUsers')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_users}</div>
                     </div>
 
-                    <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm dark:bg-gray-900/50 dark:border-white/5">
                         <div className="flex items-center gap-4 mb-2">
-                            <div className="p-3 bg-gray-700/40 text-gray-300 rounded-xl">
+                            <div className="p-3 bg-gray-100 text-gray-600 rounded-xl dark:bg-gray-700/40 dark:text-gray-300">
                                 <MessageSquare size={24} />
                             </div>
-                            <span className="text-gray-400">{t('admin.totalMessages')}</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('admin.totalMessages')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_messages}</div>
                     </div>
 
-                    <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm dark:bg-gray-900/50 dark:border-white/5">
                         <div className="flex items-center gap-4 mb-2">
                             <div className="p-3 bg-green-500/10 text-green-400 rounded-xl">
                                 <Shield size={24} />
                             </div>
-                            <span className="text-gray-400">{t('admin.maskedMessages')}</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('admin.maskedMessages')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.masked_messages}</div>
                         <div className="text-sm text-gray-500 mt-1">
@@ -83,12 +83,12 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm dark:bg-gray-900/50 dark:border-white/5">
                         <div className="flex items-center gap-4 mb-2">
                             <div className="p-3 bg-yellow-500/10 text-yellow-400 rounded-xl">
                                 <Zap size={24} />
                             </div>
-                            <span className="text-gray-400">{t('admin.totalTokens')}</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('admin.totalTokens')}</span>
                         </div>
                         <div className="text-3xl font-bold">{stats.total_tokens.toLocaleString()}</div>
                     </div>
@@ -96,7 +96,7 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-gray-900/50 border border-white/5 p-6 rounded-2xl">
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm dark:bg-gray-900/50 dark:border-white/5">
                         <h3 className="text-xl font-semibold mb-6">{t('admin.modelUsageDistribution')}</h3>
                         <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
@@ -126,7 +126,7 @@ export const AdminDashboard: React.FC = () => {
                             {modelData.map((entry, index) => (
                                 <div key={entry.name} className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                    <span className="text-sm text-gray-400">{entry.name}</span>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{entry.name}</span>
                                 </div>
                             ))}
                         </div>

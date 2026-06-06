@@ -126,6 +126,23 @@ def test_stream_unmask_with_single_angle_v2_token():
     assert full == "Email: test@example.com."
 
 
+def test_stream_unmask_with_model_normalized_v2_tokens():
+    pii = PIIService(token_format="v2", pii_v2_enabled=True)
+    _, mapping = pii.mask("Reach me at test@example.com")
+
+    session = pii.create_session(mapping=mapping)
+    chunks = [
+        "Email: << PII : EMAIL",
+        " : 1 >>, also < PII : EMAIL : 1 > and PII:EMAIL:1.",
+    ]
+
+    full = "".join(session.unmask_chunk(chunk) for chunk in chunks)
+    full += session.flush_unmask_tail()
+
+    assert "PII:EMAIL" not in full
+    assert full == "Email: test@example.com, also test@example.com and test@example.com."
+
+
 @pytest.mark.asyncio
 async def test_secretary_tool_args_unmask_and_result_roundtrip():
     mock_db = AsyncMock()

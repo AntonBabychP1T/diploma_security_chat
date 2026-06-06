@@ -208,16 +208,16 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
             {files.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2 px-1">
                     {files.map((file, i) => (
-                        <div key={i} className="relative group bg-gray-800 border border-gray-700 rounded-lg p-2 pr-8 flex items-center gap-2">
+                        <div key={i} className="relative group bg-white border border-gray-200 rounded-lg p-2 pr-8 flex items-center gap-2 dark:bg-gray-800 dark:border-gray-700">
                             {file.type.startsWith('image/') ? (
                                 <ImageIcon size={16} className="text-primary-300" />
                             ) : (
-                                <FileText size={16} className="text-gray-400" />
+                                <FileText size={16} className="text-gray-500 dark:text-gray-400" />
                             )}
-                            <span className="text-xs text-gray-200 truncate max-w-[150px]">{file.name}</span>
+                            <span className="text-xs text-gray-700 truncate max-w-[150px] dark:text-gray-200">{file.name}</span>
                             <button
                                 onClick={() => removeFile(i)}
-                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-white/5"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-red-500 rounded-full hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-white/5"
                             >
                                 <X size={14} />
                             </button>
@@ -227,7 +227,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
             )}
 
             <div className={clsx(
-                "relative flex items-end gap-2 bg-gray-800/80 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-2 shadow-2xl shadow-black/20 transition-all duration-200",
+                "relative flex items-end gap-2 bg-white/90 backdrop-blur-xl border border-gray-200 rounded-2xl sm:rounded-3xl p-2 shadow-2xl shadow-gray-200/70 transition-all duration-200 dark:bg-gray-800/80 dark:border-white/10 dark:shadow-black/20",
                 "focus-within:border-primary-500/30 focus-within:ring-1 focus-within:ring-primary-500/20"
             )}>
                 <input
@@ -240,7 +240,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
                 {/* Attachment Button */}
                 <button
-                    className="p-3 text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-full transition-colors mb-0.5"
+                    className="p-3 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors mb-0.5 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
                     title={t('input.addAttachment')}
                     onClick={() => fileInputRef.current?.click()}
                 >
@@ -255,7 +255,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                             "p-3 rounded-full transition-colors mb-0.5",
                             secretaryMode
                                 ? "text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20"
-                                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
                         )}
                         title={secretaryMode ? t('input.secretaryOn') : t('input.secretaryOff')}
                     >
@@ -271,7 +271,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     placeholder={t('input.placeholder')}
                     disabled={disabled}
                     rows={1}
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-gray-100 placeholder:text-gray-500 resize-none py-3.5 max-h-[200px] scrollbar-hide"
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 resize-none py-3.5 max-h-[200px] scrollbar-hide dark:text-gray-100 dark:placeholder:text-gray-500"
                     style={{ minHeight: '52px' }}
                 />
 
@@ -282,7 +282,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                     disabled={disabled || isSending || transcribing}
                     className={clsx(
                         "p-3 rounded-full mb-0.5 transition-all duration-200 flex items-center justify-center",
-                        recording ? "bg-red-600 text-white animate-pulse" : "bg-gray-700 text-gray-300 hover:bg-gray-600",
+                        recording ? "bg-red-600 text-white animate-pulse" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
                         (disabled || isSending || transcribing) && "opacity-50 cursor-not-allowed"
                     )}
                     title={recording ? t('input.stopRecording') : t('input.voiceInput')}
@@ -292,7 +292,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
 
                 {/* Volume meter */}
                 {recording && (
-                    <div className="h-12 w-2 bg-gray-700 rounded-full overflow-hidden flex items-end">
+                    <div className="h-12 w-2 bg-gray-200 rounded-full overflow-hidden flex items-end dark:bg-gray-700">
                         <div
                             className="w-full bg-red-500 transition-all duration-75"
                             style={{ height: `${Math.round(volume * 100)}%` }}
@@ -317,7 +317,7 @@ export const ChatInput: React.FC<Props> = ({ onSend, disabled, isSending, onStop
                             "p-3 rounded-full mb-0.5 transition-all duration-200 flex items-center justify-center",
                             (text.trim() || files.length > 0) && !disabled
                                 ? "bg-primary-600 text-white hover:bg-primary-500 shadow-lg shadow-primary-900/20 scale-100"
-                                : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
                         )}
                     >
                         <ArrowUp size={20} />

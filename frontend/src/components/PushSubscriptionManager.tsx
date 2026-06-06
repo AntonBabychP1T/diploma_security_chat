@@ -167,7 +167,7 @@ export const PushSubscriptionManager: React.FC = () => {
     }
 
     return (
-        <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20 mt-6">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xl shadow-gray-200/70 mt-6 dark:bg-gray-900/60 dark:border-white/5 dark:shadow-black/20">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
@@ -175,13 +175,13 @@ export const PushSubscriptionManager: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Сповіщення</p>
-                        <h2 className="text-lg font-semibold text-white">Push-сповіщення</h2>
+                        <h2 className="text-lg font-semibold text-gray-950 dark:text-white">Push-сповіщення</h2>
                     </div>
                 </div>
             </div>
 
             <div className="flex flex-col gap-3">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                     Отримуйте сповіщення про нові дайджести та важливі листи.
                 </p>
 

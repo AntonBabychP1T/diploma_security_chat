@@ -6,6 +6,7 @@ import time
 from app.models.chat import Chat, Message
 from app.schemas.chat import ChatCreate, MessageCreate, Attachment
 from app.services.chat.pipeline import ChatPipeline
+from app.services.chat.transcript_persister import TranscriptPersister
 from app.utils.logger import get_logger
 from fastapi import BackgroundTasks, Request
 import asyncio
@@ -306,6 +307,9 @@ class ChatService:
         await self.db.commit()
         for msg in assistant_messages:
             await self.db.refresh(msg)
+
+        first_assistant_content = assistant_messages[0].content if assistant_messages else ""
+        await TranscriptPersister(self.db).update_chat_title_if_new(chat_id, content, first_assistant_content)
             
         return assistant_messages
 

@@ -12,11 +12,89 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+
+  .secretary-pulse-ring {
+    animation: secretary-pulse-ring 1.8s ease-out infinite;
+  }
+
+  .secretary-dot-pulse {
+    animation: secretary-dot-pulse 1.2s ease-in-out infinite;
+  }
+
+  .secretary-wave-dot {
+    animation: secretary-wave-dot 1s ease-in-out infinite;
+  }
+
+  .secretary-icon-float {
+    animation: secretary-icon-float 1.8s ease-in-out infinite;
+  }
+
+  .secretary-progress {
+    animation: secretary-progress 2.4s ease-in-out infinite;
+  }
+
+  @keyframes secretary-pulse-ring {
+    0% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    80%,
+    100% {
+      opacity: 0;
+      transform: scale(1.9);
+    }
+  }
+
+  @keyframes secretary-dot-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(0.82);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.16);
+    }
+  }
+
+  @keyframes secretary-wave-dot {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
+
+  @keyframes secretary-icon-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes secretary-progress {
+    0% {
+      transform: translateX(-120%);
+    }
+    50% {
+      transform: translateX(130%);
+    }
+    100% {
+      transform: translateX(360%);
+    }
+  }
 }
 
 @layer base {
   body {
-    @apply bg-gray-950 text-gray-100 font-sans antialiased selection:bg-primary-500/30;
+    @apply bg-gray-50 text-gray-950 font-sans antialiased selection:bg-primary-500/30 dark:bg-gray-950 dark:text-gray-100;
   }
 
   /* Custom Scrollbar */
@@ -30,13 +108,13 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-700 rounded-full hover:bg-gray-600 transition-colors;
+    @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600;
   }
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-gray-900/60 backdrop-blur-md border border-white/5;
+    @apply bg-white/70 backdrop-blur-md border border-gray-200 dark:bg-gray-900/60 dark:border-white/5;
   }
 
   .btn-primary {
@@ -44,7 +122,7 @@
   }
 
   .btn-ghost {
-    @apply hover:bg-white/5 text-gray-400 hover:text-white transition-colors duration-200;
+    @apply hover:bg-gray-100 text-gray-500 hover:text-gray-950 transition-colors duration-200 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white;
   }
 
   .message-markdown {
@@ -64,21 +142,21 @@
   }
 
   .message-markdown h1 {
-    @apply mt-5 mb-3 text-xl font-semibold leading-snug text-white;
+    @apply mt-5 mb-3 text-xl font-semibold leading-snug text-gray-950 dark:text-white;
   }
 
   .message-markdown h2 {
-    @apply mt-5 mb-2.5 text-lg font-semibold leading-snug text-white;
+    @apply mt-5 mb-2.5 text-lg font-semibold leading-snug text-gray-950 dark:text-white;
   }
 
   .message-markdown h3 {
-    @apply mt-4 mb-2 text-base font-semibold leading-snug text-white;
+    @apply mt-4 mb-2 text-base font-semibold leading-snug text-gray-950 dark:text-white;
   }
 
   .message-markdown h4,
   .message-markdown h5,
   .message-markdown h6 {
-    @apply mt-4 mb-2 text-sm font-semibold leading-snug text-white;
+    @apply mt-4 mb-2 text-sm font-semibold leading-snug text-gray-950 dark:text-white;
   }
 
   .message-markdown ul {
@@ -98,7 +176,7 @@
   }
 
   .message-markdown strong {
-    @apply font-semibold text-white;
+    @apply font-semibold text-gray-950 dark:text-white;
   }
 
   .message-markdown em {
@@ -106,23 +184,23 @@
   }
 
   .message-markdown a {
-    @apply text-primary-300 underline underline-offset-2 hover:text-primary-200;
+    @apply text-primary-700 underline underline-offset-2 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200;
   }
 
   .message-markdown blockquote {
-    @apply my-3 border-l-2 border-primary-500/60 pl-3 text-gray-300;
+    @apply my-3 border-l-2 border-primary-500/60 pl-3 text-gray-600 dark:text-gray-300;
   }
 
   .message-markdown code {
-    @apply rounded bg-gray-950/80 px-1.5 py-0.5 font-mono text-[0.9em] text-primary-100;
+    @apply rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[0.9em] text-primary-800 dark:bg-gray-950/80 dark:text-primary-100;
   }
 
   .message-markdown pre {
-    @apply my-3 overflow-x-auto rounded-lg border border-white/10 bg-gray-950/80 p-3;
+    @apply my-3 overflow-x-auto rounded-lg border border-gray-200 bg-gray-100 p-3 dark:border-white/10 dark:bg-gray-950/80;
   }
 
   .message-markdown pre code {
-    @apply bg-transparent p-0 text-sm text-gray-100;
+    @apply bg-transparent p-0 text-sm text-gray-800 dark:text-gray-100;
   }
 
   .message-markdown table {
@@ -131,10 +209,10 @@
 
   .message-markdown th,
   .message-markdown td {
-    @apply border border-white/10 px-3 py-2 text-left align-top;
+    @apply border border-gray-200 px-3 py-2 text-left align-top dark:border-white/10;
   }
 
   .message-markdown th {
-    @apply bg-white/5 font-semibold text-white;
+    @apply bg-gray-100 font-semibold text-gray-950 dark:bg-white/5 dark:text-white;
   }
 }

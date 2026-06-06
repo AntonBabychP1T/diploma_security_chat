@@ -143,8 +143,8 @@ export const transcribeAudio = (blob: Blob) => {
     });
 };
 
-export const askSecretary = (query: string, chatId: number) =>
-    api.post<{ response: string }>('/secretary/ask', { query, chat_id: chatId });
+export const askSecretary = (query: string, chatId: number, signal?: AbortSignal) =>
+    api.post<{ response: string; chat_id: number }>('/secretary/ask', { query, chat_id: chatId }, { signal });
 
 export interface ConnectedAccounts {
     google: Array<{ email: string; label: string }>;

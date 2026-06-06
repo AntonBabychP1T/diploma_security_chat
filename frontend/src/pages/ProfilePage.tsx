@@ -33,6 +33,7 @@ import {
     Pencil
 } from 'lucide-react';
 import { PushSubscriptionManager } from '../components/PushSubscriptionManager';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const memoryCategoryIds = ['profile', 'preference', 'project', 'constraint', 'other'];
 const accountLabels = ['personal', 'work', 'other'];
@@ -258,7 +259,7 @@ export const ProfilePage: React.FC = () => {
     };
 
     const renderAccount = (provider: 'google' | 'microsoft', acc: { id?: number; email: string; label: string }) => (
-        <div key={`${provider}-${acc.id ?? acc.email}`} className="flex items-center justify-between bg-gray-800/40 border border-white/5 rounded-xl p-3">
+        <div key={`${provider}-${acc.id ?? acc.email}`} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-3 dark:bg-gray-800/40 dark:border-white/5">
             <div className="flex items-center gap-3">
                 <div className={provider === 'google'
                     ? "w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xs"
@@ -267,14 +268,14 @@ export const ProfilePage: React.FC = () => {
                     {provider === 'google' ? 'G' : 'MS'}
                 </div>
                 <div>
-                    <p className="text-sm font-medium text-white">{acc.email}</p>
+                    <p className="text-sm font-medium text-gray-950 dark:text-white">{acc.email}</p>
                     <p className="text-xs text-gray-500">{provider === 'google' ? 'Google' : 'Microsoft'} • {accountLabel(acc.label)}</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
                 <button
                     onClick={() => acc.id && handleUpdateLabel(provider, acc.id, acc.label)}
-                    className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-gray-950 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10"
                     title={t('profile.changeLabel')}
                 >
                     <Pencil size={14} />
@@ -291,30 +292,33 @@ export const ProfilePage: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950 pointer-events-none" />
+        <div className="min-h-screen bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-gray-50 to-gray-100 pointer-events-none dark:from-gray-900 dark:via-gray-950 dark:to-gray-950" />
             <div className="relative max-w-5xl mx-auto px-4 py-10">
                 <div className="flex items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => navigate(-1)}
-                            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors dark:text-gray-400 dark:hover:text-white"
                         >
                             <ArrowLeft size={18} />
                             <span>{t('common.back')}</span>
                         </button>
                         <div>
                             <p className="text-sm text-gray-500">{t('profile.account')}</p>
-                            <h1 className="text-2xl font-semibold text-white">{t('profile.title')}</h1>
+                            <h1 className="text-2xl font-semibold text-gray-950 dark:text-white">{t('profile.title')}</h1>
                         </div>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors shadow-lg shadow-red-900/20"
-                    >
-                        <LogOut size={16} />
-                        <span>{t('profile.logout')}</span>
-                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <ThemeToggle compact />
+                        <button
+                            onClick={handleLogout}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors shadow-lg shadow-red-900/20"
+                        >
+                            <LogOut size={16} />
+                            <span>{t('profile.logout')}</span>
+                        </button>
+                    </div>
                 </div>
 
                 {(error || success) && (
@@ -335,14 +339,14 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20">
+                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xl shadow-gray-200/70 dark:bg-gray-900/60 dark:border-white/5 dark:shadow-black/20">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
                                 <UserIcon size={22} />
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">{t('profile.basicInfo')}</p>
-                                <h2 className="text-lg font-semibold text-white">{t('profile.profile')}</h2>
+                                <h2 className="text-lg font-semibold text-gray-950 dark:text-white">{t('profile.profile')}</h2>
                             </div>
                         </div>
 
@@ -353,75 +357,75 @@ export const ProfilePage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="flex items-center gap-3 bg-gray-800/40 border border-white/5 rounded-xl p-4">
+                                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 dark:bg-gray-800/40 dark:border-white/5">
                                     <Mail size={18} className="text-primary-400" />
                                     <div>
                                         <p className="text-xs text-gray-500">{t('common.email')}</p>
-                                        <p className="text-sm text-white font-medium break-all">{profile?.email}</p>
+                                        <p className="text-sm text-gray-950 font-medium break-all dark:text-white">{profile?.email}</p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 bg-gray-800/40 border border-white/5 rounded-xl p-4">
+                                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 dark:bg-gray-800/40 dark:border-white/5">
                                     <ShieldCheck size={18} className="text-primary-400" />
                                     <div>
                                         <p className="text-xs text-gray-500">{t('profile.role')}</p>
-                                        <p className="text-sm text-white font-medium">
+                                        <p className="text-sm text-gray-950 font-medium dark:text-white">
                                             {profile?.is_admin ? t('common.admin') : t('common.user')}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 bg-gray-800/40 border border-white/5 rounded-xl p-4">
+                                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 dark:bg-gray-800/40 dark:border-white/5">
                                     <CalendarDays size={18} className="text-primary-400" />
                                     <div>
                                         <p className="text-xs text-gray-500">{t('profile.memberSince')}</p>
-                                        <p className="text-sm text-white font-medium">{formatDate(profile?.created_at)}</p>
+                                        <p className="text-sm text-gray-950 font-medium dark:text-white">{formatDate(profile?.created_at)}</p>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20">
+                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xl shadow-gray-200/70 dark:bg-gray-900/60 dark:border-white/5 dark:shadow-black/20">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
                                 <KeyRound size={22} />
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">{t('profile.security')}</p>
-                                <h2 className="text-lg font-semibold text-white">{t('profile.changePassword')}</h2>
+                                <h2 className="text-lg font-semibold text-gray-950 dark:text-white">{t('profile.changePassword')}</h2>
                             </div>
                         </div>
 
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
-                                <label className="block text-sm text-gray-400 mb-1.5">{t('profile.currentPassword')}</label>
+                                <label className="block text-sm text-gray-600 mb-1.5 dark:text-gray-400">{t('profile.currentPassword')}</label>
                                 <input
                                     type="password"
                                     required
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                    className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-400 mb-1.5">{t('profile.newPassword')}</label>
+                                <label className="block text-sm text-gray-600 mb-1.5 dark:text-gray-400">{t('profile.newPassword')}</label>
                                 <input
                                     type="password"
                                     required
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                    className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-400 mb-1.5">{t('profile.confirmPassword')}</label>
+                                <label className="block text-sm text-gray-600 mb-1.5 dark:text-gray-400">{t('profile.confirmPassword')}</label>
                                 <input
                                     type="password"
                                     required
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                    className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                                 />
                             </div>
 
@@ -443,7 +447,7 @@ export const ProfilePage: React.FC = () => {
                                         setError("");
                                         setSuccess("");
                                     }}
-                                    className="text-gray-400 hover:text-white text-sm transition-colors"
+                                    className="text-gray-500 hover:text-gray-950 text-sm transition-colors dark:text-gray-400 dark:hover:text-white"
                                 >
                                     {t('common.clear')}
                                 </button>
@@ -452,14 +456,14 @@ export const ProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="mt-6 bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20">
+                <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-xl shadow-gray-200/70 dark:bg-gray-900/60 dark:border-white/5 dark:shadow-black/20">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
                             <Link2 size={22} />
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">{t('profile.integrations')}</p>
-                            <h2 className="text-lg font-semibold text-white">{t('profile.connectedAccounts')}</h2>
+                            <h2 className="text-lg font-semibold text-gray-950 dark:text-white">{t('profile.connectedAccounts')}</h2>
                         </div>
                     </div>
 
@@ -501,8 +505,8 @@ export const ProfilePage: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                        <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-300 transition-colors">
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/5">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-300">
                             <input
                                 type="checkbox"
                                 checked={autoSecretary}
@@ -514,7 +518,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="mt-6 bg-gray-900/60 border border-white/5 rounded-2xl p-6 shadow-xl shadow-black/20">
+                <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-xl shadow-gray-200/70 dark:bg-gray-900/60 dark:border-white/5 dark:shadow-black/20">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl bg-primary-500/10 text-primary-300 flex items-center justify-center">
@@ -522,7 +526,7 @@ export const ProfilePage: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">{t('profile.userMemory')}</p>
-                                <h2 className="text-lg font-semibold text-white">{t('profile.factsToSave')}</h2>
+                                <h2 className="text-lg font-semibold text-gray-950 dark:text-white">{t('profile.factsToSave')}</h2>
                             </div>
                         </div>
                     </div>
@@ -533,10 +537,10 @@ export const ProfilePage: React.FC = () => {
                             <select
                                 value={memoryForm.category}
                                 onChange={(e) => setMemoryForm({ ...memoryForm, category: e.target.value })}
-                                className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-3 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-3 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                             >
                                 {memoryCategoryIds.map((id) => (
-                                    <option key={id} value={id} className="bg-gray-900 text-gray-100">
+                                    <option key={id} value={id} className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                                         {categoryLabel(id)}
                                     </option>
                                 ))}
@@ -548,7 +552,7 @@ export const ProfilePage: React.FC = () => {
                                 value={memoryForm.key}
                                 onChange={(e) => setMemoryForm({ ...memoryForm, key: e.target.value })}
                                 required
-                                className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-3 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-3 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                                 placeholder={t('profile.keyPlaceholder')}
                             />
                         </div>
@@ -558,7 +562,7 @@ export const ProfilePage: React.FC = () => {
                                 value={memoryForm.value}
                                 onChange={(e) => setMemoryForm({ ...memoryForm, value: e.target.value })}
                                 required
-                                className="w-full bg-gray-800/60 border border-white/10 rounded-xl py-2.5 px-3 text-white focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-3 text-gray-950 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all dark:bg-gray-800/60 dark:border-white/10 dark:text-white"
                                 placeholder={t('profile.valuePlaceholder')}
                             />
                         </div>
@@ -589,11 +593,11 @@ export const ProfilePage: React.FC = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {memories.map((m) => (
-                                <div key={m.id} className="bg-gray-800/40 border border-white/5 rounded-xl p-4 relative">
+                                <div key={m.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 relative dark:bg-gray-800/40 dark:border-white/5">
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase tracking-wide">{categoryLabel(m.category)}</p>
-                                            <p className="text-sm font-semibold text-white">{m.key}</p>
+                                            <p className="text-sm font-semibold text-gray-950 dark:text-white">{m.key}</p>
                                         </div>
                                         <button
                                             onClick={() => handleDeleteMemory(m.id)}
@@ -603,7 +607,7 @@ export const ProfilePage: React.FC = () => {
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
-                                    <p className="text-sm text-gray-300 mt-2">{m.value}</p>
+                                    <p className="text-sm text-gray-600 mt-2 dark:text-gray-300">{m.value}</p>
                                     <div className="text-xs text-gray-500 mt-3 flex justify-between">
                                         <span>{t('profile.confidence')}: {(m.confidence * 100).toFixed(0)}%</span>
                                         <span>{new Date(m.created_at).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US')}</span>

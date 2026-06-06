@@ -11,6 +11,8 @@ logger = get_logger("transcript_persister")
 
 
 class TranscriptPersister:
+    AUTO_TITLE_PLACEHOLDERS = {"New Chat", "Secretary Chat"}
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -37,9 +39,9 @@ class TranscriptPersister:
             result = await self.db.execute(select(Chat).where(Chat.id == chat_id))
             chat = result.scalar_one_or_none()
 
-            if chat and chat.title == "New Chat":
+            if chat and chat.title in self.AUTO_TITLE_PLACEHOLDERS:
                 new_title = self._generate_title(user_content)
-                if new_title != "New Chat":
+                if new_title not in self.AUTO_TITLE_PLACEHOLDERS:
                     chat.title = new_title
                     self.db.add(chat)
                     await self.db.commit()

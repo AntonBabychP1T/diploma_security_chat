@@ -18,7 +18,7 @@ export const StyleSelector: React.FC<Props> = ({ value, onChange }) => {
     ];
 
     return (
-        <div className="flex items-center bg-gray-800/50 p-1 rounded-lg border border-white/5">
+        <div className="flex items-center bg-white p-1 rounded-lg border border-gray-200 dark:bg-gray-800/50 dark:border-white/5">
             {styles.map((style) => {
                 const Icon = style.icon;
                 const isActive = value === style.id;
@@ -29,8 +29,8 @@ export const StyleSelector: React.FC<Props> = ({ value, onChange }) => {
                         className={clsx(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                             isActive
-                                ? "bg-gray-700 text-white shadow-sm"
-                                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                                ? "bg-gray-100 text-gray-950 shadow-sm dark:bg-gray-700 dark:text-white"
+                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
                         )}
                         title={style.label}
                     >

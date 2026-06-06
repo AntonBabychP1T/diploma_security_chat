@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeToggle } from './ThemeToggle';
 
 interface Props {
     chats: Chat[];
@@ -64,7 +65,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
     };
 
     return (
-        <div className="w-full md:w-72 flex flex-col h-full bg-gray-950 border-r border-white/5 relative z-20">
+        <div className="w-full md:w-72 flex flex-col h-full bg-gray-50 border-r border-gray-200 relative z-20 dark:bg-gray-950 dark:border-white/5">
             {/* Header Area */}
             <div className="p-4 space-y-4">
                 <button
@@ -79,20 +80,20 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                 </button>
 
                 <div className="relative group">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary-400 transition-colors" />
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors dark:text-gray-500 dark:group-focus-within:text-primary-400" />
                     <input
                         type="text"
                         placeholder={t('chat.searchChats')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-gray-900/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500/50 focus:bg-gray-900 transition-all placeholder:text-gray-600"
+                    className="w-full bg-white border border-gray-200 rounded-lg py-2 pl-9 pr-3 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500/50 focus:bg-white transition-all placeholder:text-gray-400 dark:bg-gray-900/50 dark:border-white/5 dark:text-gray-300 dark:focus:bg-gray-900 dark:placeholder:text-gray-600"
                 />
             </div>
             </div>
 
             {/* Chat List */}
             <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 mb-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 mb-1 dark:text-gray-500">
                     {t('chat.recentChats')}
                 </div>
 
@@ -103,13 +104,13 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                         className={clsx(
                             "group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
                             activeChatId === chat.id
-                                ? "bg-gray-800/80 text-white shadow-md border-white/5"
-                                : "text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
+                                ? "bg-white text-gray-950 shadow-sm border-gray-200 dark:bg-gray-800/80 dark:text-white dark:shadow-md dark:border-white/5"
+                                : "text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/40 dark:hover:text-gray-200"
                         )}
                     >
                         <div className={clsx(
                             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                            activeChatId === chat.id ? "bg-primary-500/20 text-primary-400" : "bg-gray-800 text-gray-500 group-hover:bg-gray-700"
+                            activeChatId === chat.id ? "bg-primary-500/15 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400" : "bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-gray-800 dark:group-hover:bg-gray-700"
                         )}>
                             <MessageSquare size={16} />
                         </div>
@@ -120,7 +121,7 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                                     value={editTitle}
                                     onChange={(e) => setEditTitle(e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="bg-gray-950 text-white text-sm p-1 rounded w-full outline-none border border-primary-500/50 focus:border-primary-500"
+                                    className="bg-white text-gray-950 text-sm p-1 rounded w-full outline-none border border-primary-500/50 focus:border-primary-500 dark:bg-gray-950 dark:text-white"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') saveEditing(e as any, chat.id);
@@ -143,14 +144,14 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
 
                                 {/* Hover Actions */}
                                 <div className={clsx(
-                                    "absolute right-2 flex items-center gap-1 bg-gray-800/90 backdrop-blur-sm rounded-lg p-1 shadow-sm transition-opacity duration-200",
+                                    "absolute right-2 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-lg p-1 shadow-sm transition-opacity duration-200 dark:bg-gray-800/90",
                                     "opacity-0 group-hover:opacity-100",
-                                    activeChatId === chat.id ? "bg-gray-800" : ""
+                                    activeChatId === chat.id ? "bg-white dark:bg-gray-800" : ""
                                 )}>
-                                    <button onClick={(e) => startEditing(e, chat)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-white/5 rounded-md transition-colors" title={t('common.rename')}>
+                                    <button onClick={(e) => startEditing(e, chat)} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-400 dark:hover:text-primary-400 dark:hover:bg-white/5" title={t('common.rename')}>
                                         <Edit2 size={13} />
                                     </button>
-                                    <button onClick={(e) => handleDelete(e, chat.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-md transition-colors" title={t('common.delete')}>
+                                    <button onClick={(e) => handleDelete(e, chat.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-white/5" title={t('common.delete')}>
                                         <Trash2 size={13} />
                                     </button>
                                 </div>
@@ -160,29 +161,29 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
                 ))}
 
                 {filteredChats.length === 0 && (
-                    <div className="text-center py-8 text-gray-600 text-sm">
+                    <div className="text-center py-8 text-gray-400 text-sm dark:text-gray-600">
                         {t('chat.noChatsFound')}
                     </div>
                 )}
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/5 bg-gray-950/50 backdrop-blur-sm">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-white/5 mb-3">
-                    <div className="w-9 h-9 rounded-lg bg-primary-500/20 text-primary-400 flex items-center justify-center">
+            <div className="p-4 border-t border-gray-200 bg-white/60 backdrop-blur-sm dark:border-white/5 dark:bg-gray-950/50">
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-gray-200 mb-3 dark:bg-gray-900/60 dark:border-white/5">
+                    <div className="w-9 h-9 rounded-lg bg-primary-500/15 text-primary-600 flex items-center justify-center dark:bg-primary-500/20 dark:text-primary-400">
                         <UserIcon size={18} />
                     </div>
                     <div className="min-w-0">
                         <p className="text-xs text-gray-500">{t('chat.signedInAs')}</p>
-                        <p className="text-sm text-white font-medium truncate">{user?.email || "..."}</p>
+                        <p className="text-sm text-gray-950 font-medium truncate dark:text-white">{user?.email || "..."}</p>
                     </div>
                 </div>
 
                 <Link
                     to="/profile"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 group mb-2"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:text-gray-950 hover:bg-white transition-all duration-200 group mb-2 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"
                 >
-                    <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-primary-500/20 group-hover:text-primary-400 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-primary-500/15 group-hover:text-primary-600 transition-colors dark:bg-gray-800 dark:group-hover:bg-primary-500/20 dark:group-hover:text-primary-400">
                         <UserIcon size={18} />
                     </div>
                     <div className="flex-1">
@@ -193,14 +194,15 @@ export const Sidebar: React.FC<Props> = ({ chats, activeChatId, onNewChat, onDel
 
                 <Link
                     to="/metrics"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 group"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:text-gray-950 hover:bg-white transition-all duration-200 group dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"
                 >
-                    <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-primary-500/20 group-hover:text-primary-400 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-primary-500/15 group-hover:text-primary-600 transition-colors dark:bg-gray-800 dark:group-hover:bg-primary-500/20 dark:group-hover:text-primary-400">
                         <BarChart2 size={18} />
                     </div>
                     <span className="text-sm font-medium">{t('chat.metricsDashboard')}</span>
                 </Link>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <ThemeToggle compact />
                     <LanguageSwitcher compact />
                 </div>
             </div>

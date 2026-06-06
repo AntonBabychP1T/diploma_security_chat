@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import List, Dict, Any, Optional, Tuple
 
 try:
-    from google import genai
+    import google.genai as genai
     from google.genai import types as genai_types
 except ImportError:
     genai = None
@@ -26,11 +26,15 @@ class GeminiProvider(LLMProvider):
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not configured")
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.default_model = "gemini-2.5-flash"
+        self.default_model = "gemini-3.5-flash"
 
     def _resolve_model_id(self, model_name: Optional[str]) -> str:
         model_id = model_name or self.default_model
         alias_map = {
+            "gemini-3.5-flash": "gemini-3.5-flash",
+            "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+            "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
+            "gemini-2.5-pro": "gemini-2.5-pro",
             "gemini-2.5-flash": "gemini-2.5-flash",
             "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
         }
@@ -140,12 +144,16 @@ class GeminiProvider(LLMProvider):
         system_instruction = "\n\n".join(system_instructions) or None
         return system_instruction, contents
 
-    def _build_config(self, options: Any, system_instruction: Optional[str]):
+    def _build_config(self, options: Any, system_instruction: Optional[str], model_id: str):
         config: Dict[str, Any] = {}
 
         temperature = self._get_option(options, "temperature")
-        if temperature is not None:
+        if temperature is not None and not model_id.startswith("gemini-3"):
             config["temperature"] = temperature
+
+        thinking_level = self._get_option(options, "thinking_level")
+        if thinking_level and model_id.startswith("gemini-3"):
+            config["thinking_config"] = {"thinking_level": thinking_level}
 
         max_output_tokens = (
             self._get_option(options, "max_output_tokens")
@@ -189,7 +197,7 @@ class GeminiProvider(LLMProvider):
         model_name = self._get_option(options, "model", self.default_model)
         model_id = self._resolve_model_id(model_name)
         system_instruction, contents = self._convert_messages(messages)
-        config = self._build_config(options, system_instruction)
+        config = self._build_config(options, system_instruction, model_id)
 
         try:
             response = await self.client.aio.models.generate_content(
@@ -220,23 +228,17 @@ class GeminiProvider(LLMProvider):
         model_name = self._get_option(options, "model", self.default_model)
         model_id = self._resolve_model_id(model_name)
         system_instruction, contents = self._convert_messages(messages)
-        config = self._build_config(options, system_instruction)
+        config = self._build_config(options, system_instruction, model_id)
 
         async def generator():
-            response_stream = await self.client.aio.models.generate_content_stream(
+            response = await self.client.aio.models.generate_content(
                 model=model_id,
                 contents=contents,
                 config=config,
             )
 
-            try:
-                async for chunk in response_stream:
-                    text = chunk.text or ""
-                    if text:
-                        yield self._stream_chunk(text)
-            finally:
-                close = getattr(response_stream, "aclose", None)
-                if close:
-                    await close()
+            text = response.text or ""
+            if text:
+                yield self._stream_chunk(text)
 
         return generator()

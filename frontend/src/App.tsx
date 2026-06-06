@@ -8,6 +8,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { ProfilePage } from './pages/ProfilePage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { I18nProvider } from './i18n/I18nProvider';
+import { ThemeProvider } from './context/ThemeContext';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isAuthenticated } = useAuth();
@@ -16,44 +17,46 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
     return (
-        <I18nProvider>
-            <AuthProvider>
-                <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+        <ThemeProvider>
+            <I18nProvider>
+                <AuthProvider>
+                    <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
 
-                    <Route path="/" element={
-                        <ProtectedRoute>
-                            <ChatPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/" element={
+                            <ProtectedRoute>
+                                <ChatPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/chats/:id" element={
-                        <ProtectedRoute>
-                            <ChatPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/chats/:id" element={
+                            <ProtectedRoute>
+                                <ChatPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/metrics" element={
-                        <ProtectedRoute>
-                            <MetricsPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/metrics" element={
+                            <ProtectedRoute>
+                                <MetricsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/admin" element={
-                        <ProtectedRoute>
-                            <AdminDashboard />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/admin" element={
+                            <ProtectedRoute>
+                                <AdminDashboard />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/profile" element={
-                        <ProtectedRoute>
-                            <ProfilePage />
-                        </ProtectedRoute>
-                    } />
-                </Routes>
-            </AuthProvider>
-        </I18nProvider>
+                        <Route path="/profile" element={
+                            <ProtectedRoute>
+                                <ProfilePage />
+                            </ProtectedRoute>
+                        } />
+                    </Routes>
+                </AuthProvider>
+            </I18nProvider>
+        </ThemeProvider>
     );
 }
 
